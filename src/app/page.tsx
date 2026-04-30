@@ -5,6 +5,7 @@ import { format } from "date-fns";
  * The Anti-Portal: High-Contrast Task Feed
  * Overwriting boilerplate with the Sentinel core UI.
  */
+export const dynamic = 'force-dynamic';
 export default async function AntiPortalPage() {
   const tasks = await prisma.universalTask.findMany({
     orderBy: { createdAt: "desc" },
