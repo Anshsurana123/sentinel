@@ -5,7 +5,6 @@ import { IngestionEngine } from '../src/lib/sentinel/engine';
 
 /**
  * RENDER HEALTH CHECK SERVER
- * Injected to satisfy Render's requirement for a port binding.
  */
 const PORT = process.env.PORT || 10000;
 const server = http.createServer((req, res) => {
@@ -31,13 +30,19 @@ const client = new Client({
 client.once(Events.ClientReady, (c) => {
   console.log(`--- The Sentinel: LIVE ---`);
   console.log(`Logged in as ${c.user.tag}`);
+  console.log(`Listening on Channel ID: ${process.env.DISCORD_CHANNEL_ID || 'ALL_CHANNELS'}`);
 });
 
 client.on(Events.MessageCreate, async (message) => {
+  // 1. Ignore bots
   if (message.author.bot) return;
 
+  // 2. Filter by Channel ID if provided in env
+  const targetChannelId = process.env.DISCORD_CHANNEL_ID;
+  if (targetChannelId && message.channel.id !== targetChannelId) return;
+
   try {
-    console.log(`[Event] Signal from ${message.author.username}`);
+    console.log(`[Event] Signal from ${message.author.username} in ${message.channel.id}`);
     
     const task = await IngestionEngine.process('DISCORD', {
       id: message.id,
@@ -55,9 +60,10 @@ client.on(Events.MessageCreate, async (message) => {
   }
 });
 
-const TOKEN = process.env.DISCORD_TOKEN;
+// UPDATED KEY: DISCORD_BOT_TOKEN to match your dashboard
+const TOKEN = process.env.DISCORD_BOT_TOKEN;
 if (!TOKEN) {
-  console.error('CRITICAL: DISCORD_TOKEN is missing in .env');
+  console.error('CRITICAL: DISCORD_BOT_TOKEN is missing in environment variables');
   process.exit(1);
 }
 
