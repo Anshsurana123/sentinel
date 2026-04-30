@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "postinstall": "prisma generate",
     "start:bot": "tsx scripts/live-discord-listener.ts"
   },
   "dependencies": {
