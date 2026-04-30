@@ -9,7 +9,7 @@ import { IngestionEngine } from '../src/lib/sentinel/engine';
 const PORT = process.env.PORT || 10000;
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('🟢 Sentinel Bot is Alive and Listening.');
+  res.end('🟢 Sentinel Bot is Alive and Listening. Instance: https://sentinel-kuw8.onrender.com');
 });
 
 server.listen(PORT, () => {

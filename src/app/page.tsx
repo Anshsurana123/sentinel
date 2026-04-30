@@ -90,7 +90,7 @@ export default async function AntiPortalPage() {
 
         {/* Footer Audit */}
         <footer className="pt-12 text-[9px] text-gray-800 uppercase tracking-[0.3em] text-center italic">
-          Sentinel_Engine_V1.0 // Auth: xcgauraonguuugxfqvmb
+          Sentinel_Engine_V1.0 // Instance: https://sentinel-kuw8.onrender.com
         </footer>
       </div>
     </main>
