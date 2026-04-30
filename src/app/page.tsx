@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
+import DismissButton from "@/components/DismissButton";
 
 /**
  * The Anti-Portal: High-Contrast Task Feed
- * Overwriting boilerplate with the Sentinel core UI.
+ * Integrated with Dismiss (Delete) server actions.
  */
 export const dynamic = 'force-dynamic';
+
 export default async function AntiPortalPage() {
   const tasks = await prisma.universalTask.findMany({
     orderBy: { createdAt: "desc" },
@@ -63,14 +65,15 @@ export default async function AntiPortalPage() {
                     </p>
                   )}
 
-                  {/* Semantic Metadata Footer */}
-                  <footer className="pt-4 border-t border-current flex justify-between items-end opacity-60 text-[9px] uppercase tracking-[0.2em]">
-                    <div>
-                      <span className="font-bold">SUB:</span> {metadata?.subject || "GENERAL"}
+                  {/* Semantic Metadata Footer + Actions */}
+                  <footer className="pt-4 border-t border-current flex justify-between items-center opacity-60 text-[9px] uppercase tracking-[0.2em]">
+                    <div className="flex gap-4">
+                      <span><span className="font-bold">SUB:</span> {metadata?.subject || "GENERAL"}</span>
+                      <span><span className="font-bold">CONF:</span> {(metadata?.confidence * 100 || 0).toFixed(0)}%</span>
                     </div>
-                    <div className="text-right">
-                      <span className="font-bold">CONFIDENCE:</span> {(metadata?.confidence * 100 || 0).toFixed(0)}%
-                    </div>
+                    
+                    {/* Action Layer */}
+                    <DismissButton taskId={task.id} />
                   </footer>
                 </div>
 
