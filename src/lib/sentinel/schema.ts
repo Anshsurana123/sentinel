@@ -10,7 +10,7 @@ export const UniversalTaskSchema = z.object({
   title: z.string().min(1),
   content: z.string().optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
-  metadata: z.record(z.any()),
+  metadata: z.record(z.string(), z.any()),
   createdAt: z.date(),
   expiresAt: z.date().optional(),
 });
