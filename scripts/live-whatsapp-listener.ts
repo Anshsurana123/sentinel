@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import http from 'http';
 import { Client, LocalAuth } from 'whatsapp-web.js';
-import qrcode from 'qrcode-terminal';
 import { IngestionEngine } from '../src/lib/sentinel/engine';
 import { SemanticParser } from '../src/lib/sentinel/nlp';
 import { prisma } from '../src/lib/prisma';
@@ -20,7 +19,7 @@ server.listen(PORT, () => {
 });
 
 /**
- * Distraction keywords for Focus Mode (shared logic)
+ * Distraction keywords for Focus Mode
  */
 const DISTRACTION_KEYWORDS = ['valo', 'valorant', 'play', 'game', 'gaming', 'online', 'hop on', 'csgo', 'mc', 'fortnite', 'roblox', 'apex', 'cod', 'league', 'pubg'];
 
@@ -41,33 +40,60 @@ const client = new Client({
 });
 
 // ═══════════════════════════════════════════════════
-// AUTHENTICATION: QR Code Pairing
+// QR CODE → DATABASE BRIDGE (replaces terminal QR)
 // ═══════════════════════════════════════════════════
-client.on('qr', (qr: string) => {
-  console.log('\n[Auth] Scan this QR code with WhatsApp:');
-  qrcode.generate(qr, { small: true });
+client.on('qr', async (qr: string) => {
+  console.log('[Auth] New QR code generated. Writing to database for UI pickup...');
+  
+  await prisma.systemState.upsert({
+    where: { id: 'global' },
+    update: { whatsappQr: qr, whatsappConnected: false },
+    create: { id: 'global', whatsappQr: qr, whatsappConnected: false },
+  });
+
+  console.log('[Auth] QR written to SystemState. Waiting for scan...');
 });
 
 client.on('authenticated', () => {
   console.log('[Auth] WhatsApp authentication successful.');
 });
 
-client.on('auth_failure', (msg: string) => {
+client.on('auth_failure', async (msg: string) => {
   console.error('[Auth] CRITICAL: WhatsApp authentication failed:', msg);
+  
+  await prisma.systemState.upsert({
+    where: { id: 'global' },
+    update: { whatsappQr: null, whatsappConnected: false },
+    create: { id: 'global', whatsappQr: null, whatsappConnected: false },
+  });
 });
 
-client.on('ready', () => {
+client.on('ready', async () => {
   console.log('🟢 Sentinel Secondary Core Online: WhatsApp Linked.');
+  
+  // Clear QR and mark as connected
+  await prisma.systemState.upsert({
+    where: { id: 'global' },
+    update: { whatsappQr: null, whatsappConnected: true },
+    create: { id: 'global', whatsappQr: null, whatsappConnected: true },
+  });
+});
+
+client.on('disconnected', async (reason: string) => {
+  console.log('[Auth] WhatsApp disconnected:', reason);
+  
+  await prisma.systemState.upsert({
+    where: { id: 'global' },
+    update: { whatsappQr: null, whatsappConnected: false },
+    create: { id: 'global', whatsappQr: null, whatsappConnected: false },
+  });
 });
 
 // ═══════════════════════════════════════════════════
 // MESSAGE INGESTION
 // ═══════════════════════════════════════════════════
 client.on('message', async (message) => {
-  // Skip status updates (stories, broadcasts)
   if (message.isStatus) return;
-
-  // Skip empty messages (media-only, stickers, etc.)
   if (!message.body || message.body.trim().length === 0) return;
 
   try {
@@ -76,20 +102,16 @@ client.on('message', async (message) => {
 
     console.log(`[WA Event] Signal from ${authorName}: "${message.body}"`);
 
-    // ═══════════════════════════════════════════════
     // FOCUS MODE SHIELD
-    // ═══════════════════════════════════════════════
     const settings = await prisma.globalSettings.findUnique({ where: { id: "singleton" } });
 
     if (settings?.studyModeActive) {
-      // LAYER 1: Fast keyword check
       if (quickKeywordCheck(message.body)) {
         await message.reply("Currently in *Sentinel Focus Mode*. Distraction signals are being deflected. 🛡️");
         console.log(`[WA Deflection:Keyword] Blocked: "${message.body}"`);
         return;
       }
 
-      // LAYER 2: AI Intent Classification
       const intent = await SemanticParser.classifyIntent(message.body);
       if (intent.distraction) {
         await message.reply(`Currently in *Sentinel Focus Mode*. Distraction signals are being deflected. 🛡️\n_Reason: ${intent.reason}_`);
@@ -98,9 +120,7 @@ client.on('message', async (message) => {
       }
     }
 
-    // ═══════════════════════════════════════════════
-    // PIPELINE 2: Task Extraction
-    // ═══════════════════════════════════════════════
+    // TASK EXTRACTION
     const task = await IngestionEngine.process('WHATSAPP', {
       id: message.id.id,
       content: message.body,

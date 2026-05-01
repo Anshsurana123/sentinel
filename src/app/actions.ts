@@ -4,13 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 /**
- * Server Action to delete a task from the database.
+ * Server Action: Delete a task from the database.
  */
 export async function deleteTask(id: string) {
   try {
-    await prisma.universalTask.delete({
-      where: { id },
-    });
+    await prisma.universalTask.delete({ where: { id } });
     revalidatePath("/");
     return { success: true };
   } catch (error) {
@@ -20,7 +18,7 @@ export async function deleteTask(id: string) {
 }
 
 /**
- * Server Action to toggle the global Study Mode state.
+ * Server Action: Toggle global Study Mode state.
  */
 export async function toggleStudyMode() {
   const current = await prisma.globalSettings.findUnique({ where: { id: "singleton" } });
@@ -33,4 +31,16 @@ export async function toggleStudyMode() {
   });
 
   revalidatePath("/");
+}
+
+/**
+ * Server Action: Fetch WhatsApp connection state for UI polling.
+ */
+export async function getWhatsAppState() {
+  const state = await prisma.systemState.findUnique({ where: { id: "global" } });
+  return {
+    qr: state?.whatsappQr || null,
+    connected: state?.whatsappConnected || false,
+    updatedAt: state?.updatedAt?.toISOString() || null,
+  };
 }

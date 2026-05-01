@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
-import { UniversalTask } from "@prisma/client"; // Added type import
+import { UniversalTask } from "@prisma/client";
 import DismissButton from "@/components/DismissButton";
 import FocusToggle from "@/components/FocusToggle";
+import WhatsAppConnector from "@/components/WhatsAppConnector";
 
 export const dynamic = 'force-dynamic';
 
@@ -100,6 +101,9 @@ export default async function AntiPortalPage() {
             </div>
           )}
         </section>
+
+        {/* WhatsApp Connection Panel */}
+        <WhatsAppConnector />
 
         {/* Footer Audit */}
         <footer className="pt-12 text-[9px] text-gray-800 uppercase tracking-[0.3em] text-center italic">

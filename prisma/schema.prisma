@@ -46,3 +46,10 @@ model GlobalSettings {
   studyModeActive Boolean  @default(false)
   updatedAt       DateTime @updatedAt
 }
+
+model SystemState {
+  id                 String   @id @default("global")
+  whatsappQr         String?
+  whatsappConnected  Boolean  @default(false)
+  updatedAt          DateTime @updatedAt
+}
