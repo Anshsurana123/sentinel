@@ -1,28 +1,32 @@
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
 import DismissButton from "@/components/DismissButton";
+import FocusToggle from "@/components/FocusToggle";
 
-/**
- * The Anti-Portal: High-Contrast Task Feed
- * Integrated with Dismiss (Delete) server actions.
- */
 export const dynamic = 'force-dynamic';
 
 export default async function AntiPortalPage() {
-  const tasks = await prisma.universalTask.findMany({
-    orderBy: { createdAt: "desc" },
-  });
+  // Parallel fetch for UI state and tasks
+  const [tasks, settings] = await Promise.all([
+    prisma.universalTask.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.globalSettings.findUnique({ where: { id: "singleton" } })
+  ]);
+
+  const isFocusMode = !!settings?.studyModeActive;
 
   return (
-    <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black p-6 md:p-12">
-      <div className="max-w-2xl mx-auto space-y-12">
+    <main className={`min-h-screen font-mono text-white selection:bg-white selection:text-black p-6 md:p-12 transition-colors duration-700 ${isFocusMode ? "bg-red-950/20" : "bg-black"}`}>
+      <div className={`max-w-2xl mx-auto space-y-12 border-x-2 transition-all duration-700 ${isFocusMode ? "border-red-600 px-8" : "border-transparent"}`}>
         
         {/* Header Section */}
-        <header className="border-b-2 border-white pb-8">
-          <h1 className="text-4xl font-bold uppercase tracking-tighter italic">The Sentinel</h1>
-          <p className="text-gray-500 mt-2 text-[10px] uppercase tracking-widest">
-            Anti-Portal Feed // Active Intelligence Blocks: {tasks.length}
-          </p>
+        <header className="flex justify-between items-end border-b-2 border-white pb-8">
+          <div>
+            <h1 className="text-4xl font-bold uppercase tracking-tighter italic">The Sentinel</h1>
+            <p className="text-gray-500 mt-2 text-[10px] uppercase tracking-widest">
+              Anti-Portal Feed // Active Intelligence Blocks: {tasks.length}
+            </p>
+          </div>
+          <FocusToggle active={isFocusMode} />
         </header>
 
         {/* Task Timeline */}
@@ -72,12 +76,10 @@ export default async function AntiPortalPage() {
                       <span><span className="font-bold">CONF:</span> {(metadata?.confidence * 100 || 0).toFixed(0)}%</span>
                     </div>
                     
-                    {/* Action Layer */}
                     <DismissButton taskId={task.id} />
                   </footer>
                 </div>
 
-                {/* Source Tag */}
                 <div className="absolute -bottom-3 right-4 px-2 bg-black text-white border border-white text-[8px] font-bold tracking-widest">
                   SRC_{task.source}
                 </div>

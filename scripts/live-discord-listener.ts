@@ -2,6 +2,7 @@ import 'dotenv/config';
 import http from 'http';
 import { Client, GatewayIntentBits, Events } from 'discord.js';
 import { IngestionEngine } from '../src/lib/sentinel/engine';
+import { prisma } from '../src/lib/prisma';
 
 /**
  * RENDER HEALTH CHECK SERVER
@@ -30,19 +31,16 @@ const client = new Client({
 client.once(Events.ClientReady, (c) => {
   console.log(`--- The Sentinel: LIVE ---`);
   console.log(`Logged in as ${c.user.tag}`);
-  console.log(`Listening on Channel ID: ${process.env.DISCORD_CHANNEL_ID || 'ALL_CHANNELS'}`);
 });
 
 client.on(Events.MessageCreate, async (message) => {
-  // 1. Ignore bots
   if (message.author.bot) return;
 
-  // 2. Filter by Channel ID if provided in env
   const targetChannelId = process.env.DISCORD_CHANNEL_ID;
   if (targetChannelId && message.channel.id !== targetChannelId) return;
 
   try {
-    console.log(`[Event] Signal from ${message.author.username} in ${message.channel.id}`);
+    console.log(`[Event] Signal from ${message.author.username}`);
     
     const task = await IngestionEngine.process('DISCORD', {
       id: message.id,
@@ -53,8 +51,21 @@ client.on(Events.MessageCreate, async (message) => {
       },
       timestamp: message.createdAt.toISOString()
     });
+
+    // --- FOCUS MODE LOGIC ---
     if (!task) {
-      console.log(`[Filtered] Signal discarded as noise.`);
+      // If AI filtered as noise, check for distraction invitations during Focus Mode
+      const settings = await prisma.globalSettings.findUnique({ where: { id: "singleton" } });
+      
+      if (settings?.studyModeActive) {
+        const content = message.content.toLowerCase();
+        const distractions = ['valo', 'play', 'game', 'online', 'hop on', 'csgo', 'mc', 'fortnite', 'roblox'];
+        
+        if (distractions.some(d => content.includes(d))) {
+          await message.reply("Currently in **Sentinel Focus Mode**. Distraction signals are being deflected. 🛡️");
+          console.log(`[Deflection] Blocked distraction from ${message.author.username}`);
+        }
+      }
       return;
     }
 
@@ -64,10 +75,9 @@ client.on(Events.MessageCreate, async (message) => {
   }
 });
 
-// UPDATED KEY: DISCORD_BOT_TOKEN to match your dashboard
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
 if (!TOKEN) {
-  console.error('CRITICAL: DISCORD_BOT_TOKEN is missing in environment variables');
+  console.error('CRITICAL: DISCORD_BOT_TOKEN is missing');
   process.exit(1);
 }
 
