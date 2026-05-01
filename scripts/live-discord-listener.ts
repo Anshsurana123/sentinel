@@ -53,6 +53,10 @@ client.on(Events.MessageCreate, async (message) => {
       },
       timestamp: message.createdAt.toISOString()
     });
+    if (!task) {
+      console.log(`[Filtered] Signal discarded as noise.`);
+      return;
+    }
 
     console.log(`[Success] Ingested: ${task.title}`);
   } catch (error: any) {
