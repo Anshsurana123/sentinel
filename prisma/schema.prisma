@@ -39,3 +39,9 @@ model UniversalTask {
   @@index([fingerprint])
   @@index([source])
 }
+
+model GlobalSettings {
+  id              String   @id @default("singleton")
+  studyModeActive Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
+}
