@@ -2,6 +2,7 @@ import 'dotenv/config';
 import http from 'http';
 import { Client, GatewayIntentBits, Events } from 'discord.js';
 import { IngestionEngine } from '../src/lib/sentinel/engine';
+import { SemanticParser } from '../src/lib/sentinel/nlp';
 import { prisma } from '../src/lib/prisma';
 
 /**
@@ -18,9 +19,14 @@ server.listen(PORT, () => {
 });
 
 /**
- * Distraction keywords for Focus Mode deflection
+ * FAST PATH: Instant keyword matching (zero AI cost)
  */
-const DISTRACTION_KEYWORDS = ['valo', 'play', 'game', 'online', 'hop on', 'csgo', 'mc', 'fortnite', 'roblox', 'apex', 'cod', 'league'];
+const DISTRACTION_KEYWORDS = ['valo', 'valorant', 'play', 'game', 'gaming', 'online', 'hop on', 'csgo', 'mc', 'fortnite', 'roblox', 'apex', 'cod', 'league', 'pubg'];
+
+function quickKeywordCheck(text: string): boolean {
+  const lower = text.toLowerCase();
+  return DISTRACTION_KEYWORDS.some(kw => lower.includes(kw));
+}
 
 /**
  * DISCORD LISTENER CORE
@@ -47,25 +53,33 @@ client.on(Events.MessageCreate, async (message) => {
   try {
     console.log(`[Event] Signal from ${message.author.username}: "${message.content}"`);
 
-    // ═══════════════════════════════════════════════════
-    // STEP 1: FOCUS MODE CHECK (BEFORE AI — fast & free)
-    // ═══════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
+    // FOCUS MODE SHIELD (Only runs when Study Mode is ON)
+    // ═══════════════════════════════════════════════════════════
     const settings = await prisma.globalSettings.findUnique({ where: { id: "singleton" } });
-    
+
     if (settings?.studyModeActive) {
-      const contentLower = message.content.toLowerCase();
-      const isDistraction = DISTRACTION_KEYWORDS.some(keyword => contentLower.includes(keyword));
       
-      if (isDistraction) {
+      // LAYER 1: Fast Path — Instant keyword check (0ms, no AI)
+      if (quickKeywordCheck(message.content)) {
         await message.reply("Currently in **Sentinel Focus Mode**. Distraction signals are being deflected. 🛡️");
-        console.log(`[Deflection] Blocked distraction from ${message.author.username}`);
-        return; // Exit early — don't waste AI tokens
+        console.log(`[Deflection:Keyword] Blocked: "${message.content}"`);
+        return;
+      }
+
+      // LAYER 2: AI Intent Classifier — Catches semantic distractions (e.g., "yo come chill tonight")
+      const intent = await SemanticParser.classifyIntent(message.content);
+      
+      if (intent.distraction) {
+        await message.reply(`Currently in **Sentinel Focus Mode**. Distraction signals are being deflected. 🛡️\n-# Reason: ${intent.reason}`);
+        console.log(`[Deflection:AI] Blocked: "${message.content}" — Reason: ${intent.reason}`);
+        return;
       }
     }
 
-    // ═══════════════════════════════════════════════════
-    // STEP 2: AI INGESTION (only for non-distraction msgs)
-    // ═══════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
+    // PIPELINE 2: Task Extraction (runs for all non-distraction msgs)
+    // ═══════════════════════════════════════════════════════════
     const task = await IngestionEngine.process('DISCORD', {
       id: message.id,
       content: message.content,
@@ -77,7 +91,7 @@ client.on(Events.MessageCreate, async (message) => {
     });
 
     if (!task) {
-      console.log(`[Filtered] Signal discarded as noise.`);
+      console.log(`[Filtered] Non-actionable signal discarded.`);
       return;
     }
 
