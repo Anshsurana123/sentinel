@@ -12,6 +12,7 @@ datasource db {
 enum SourceType {
   DISCORD
   CANVAS
+  WHATSAPP
   SYSTEM
   WEBHOOK
 }

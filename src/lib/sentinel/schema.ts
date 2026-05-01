@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const SourceType = z.enum(['DISCORD', 'CANVAS', 'SYSTEM', 'WEBHOOK']);
+export const SourceType = z.enum(['DISCORD', 'CANVAS', 'WHATSAPP', 'SYSTEM', 'WEBHOOK']);
 
 export const UniversalTaskSchema = z.object({
   id: z.string().uuid().optional(),
@@ -32,6 +32,14 @@ export const CanvasPayloadSchema = z.object({
   todo_date: z.string().optional(),
 });
 
+export const WhatsAppPayloadSchema = z.object({
+  id: z.string(),
+  content: z.string(),
+  author: z.string(),     // phone number or contact name
+  timestamp: z.string(),
+});
+
 export type IngestionPayload = 
   | { source: 'DISCORD'; data: z.infer<typeof DiscordPayloadSchema> }
-  | { source: 'CANVAS'; data: z.infer<typeof CanvasPayloadSchema> };
+  | { source: 'CANVAS'; data: z.infer<typeof CanvasPayloadSchema> }
+  | { source: 'WHATSAPP'; data: z.infer<typeof WhatsAppPayloadSchema> };

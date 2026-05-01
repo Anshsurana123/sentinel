@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
-    "start:bot": "tsx scripts/live-discord-listener.ts"
+    "start:bot": "tsx scripts/live-discord-listener.ts",
+    "start:whatsapp": "tsx scripts/live-whatsapp-listener.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

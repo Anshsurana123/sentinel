@@ -1,5 +1,6 @@
 import { DiscordStrategy } from './strategies/discord';
 import { CanvasStrategy } from './strategies/canvas';
+import { WhatsAppStrategy } from './strategies/whatsapp';
 import { IngestionStrategy } from './strategies/base';
 import { UniversalTaskSchema, UniversalTask } from './schema';
 import { SemanticParser } from './nlp';
@@ -13,6 +14,7 @@ export class IngestionEngine {
   private static strategies: Record<string, IngestionStrategy<any>> = {
     DISCORD: new DiscordStrategy(),
     CANVAS: new CanvasStrategy(),
+    WHATSAPP: new WhatsAppStrategy(),
   };
 
   static async process(source: string, payload: any): Promise<UniversalTask | null> {
@@ -32,7 +34,6 @@ export class IngestionEngine {
     }
 
     // 2. Semantic Filtering (Powered by Cerebras)
-    // Discards casual chatter if AI returns null
     const nlpData = await SemanticParser.extract(parsed.content || '');
     
     if (!nlpData) {
@@ -54,7 +55,7 @@ export class IngestionEngine {
           ...parsed.metadata,
           confidence: nlpData.confidence,
           subject: nlpData.subject,
-          reasoning: nlpData.reasoning, // Logic stored for UI display
+          reasoning: nlpData.reasoning,
           enriched_at: new Date().toISOString()
         }
       }
