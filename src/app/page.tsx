@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
+import { UniversalTask } from "@prisma/client"; // Added type import
 import DismissButton from "@/components/DismissButton";
 import FocusToggle from "@/components/FocusToggle";
 
@@ -35,7 +36,7 @@ export default async function AntiPortalPage() {
 
         {/* Task Timeline */}
         <section className="space-y-8">
-          {tasks.map((task) => {
+          {tasks.map((task: UniversalTask) => { // Explicitly typed
             const metadata = (task.metadata as any) || {};
             const isHigh = task.priority === "HIGH" || task.priority === "CRITICAL";
             const isLow = task.priority === "LOW";
