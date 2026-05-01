@@ -18,6 +18,11 @@ server.listen(PORT, () => {
 });
 
 /**
+ * Distraction keywords for Focus Mode deflection
+ */
+const DISTRACTION_KEYWORDS = ['valo', 'play', 'game', 'online', 'hop on', 'csgo', 'mc', 'fortnite', 'roblox', 'apex', 'cod', 'league'];
+
+/**
  * DISCORD LISTENER CORE
  */
 const client = new Client({
@@ -40,8 +45,27 @@ client.on(Events.MessageCreate, async (message) => {
   if (targetChannelId && message.channel.id !== targetChannelId) return;
 
   try {
-    console.log(`[Event] Signal from ${message.author.username}`);
+    console.log(`[Event] Signal from ${message.author.username}: "${message.content}"`);
+
+    // ═══════════════════════════════════════════════════
+    // STEP 1: FOCUS MODE CHECK (BEFORE AI — fast & free)
+    // ═══════════════════════════════════════════════════
+    const settings = await prisma.globalSettings.findUnique({ where: { id: "singleton" } });
     
+    if (settings?.studyModeActive) {
+      const contentLower = message.content.toLowerCase();
+      const isDistraction = DISTRACTION_KEYWORDS.some(keyword => contentLower.includes(keyword));
+      
+      if (isDistraction) {
+        await message.reply("Currently in **Sentinel Focus Mode**. Distraction signals are being deflected. 🛡️");
+        console.log(`[Deflection] Blocked distraction from ${message.author.username}`);
+        return; // Exit early — don't waste AI tokens
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    // STEP 2: AI INGESTION (only for non-distraction msgs)
+    // ═══════════════════════════════════════════════════
     const task = await IngestionEngine.process('DISCORD', {
       id: message.id,
       content: message.content,
@@ -52,20 +76,8 @@ client.on(Events.MessageCreate, async (message) => {
       timestamp: message.createdAt.toISOString()
     });
 
-    // --- FOCUS MODE LOGIC ---
     if (!task) {
-      // If AI filtered as noise, check for distraction invitations during Focus Mode
-      const settings = await prisma.globalSettings.findUnique({ where: { id: "singleton" } });
-      
-      if (settings?.studyModeActive) {
-        const content = message.content.toLowerCase();
-        const distractions = ['valo', 'play', 'game', 'online', 'hop on', 'csgo', 'mc', 'fortnite', 'roblox'];
-        
-        if (distractions.some(d => content.includes(d))) {
-          await message.reply("Currently in **Sentinel Focus Mode**. Distraction signals are being deflected. 🛡️");
-          console.log(`[Deflection] Blocked distraction from ${message.author.username}`);
-        }
-      }
+      console.log(`[Filtered] Signal discarded as noise.`);
       return;
     }
 

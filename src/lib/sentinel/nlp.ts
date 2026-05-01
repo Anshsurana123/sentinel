@@ -40,10 +40,10 @@ export class SemanticParser {
             role: 'system',
             content: `You are an expert student task extractor. 
             RULES:
-            1. If the message contains NO actionable task, deadline, or academic signal (e.g. casual chat, gaming noise), return exactly: null.
-            2. If actionable, return JSON with keys: "title", "deadline" (ISO string), "priority" (LOW, MEDIUM, HIGH, CRITICAL), "confidence" (0.0-1.0), "subject", "reasoning".
+            1. If the message contains NO actionable task, deadline, or academic signal (e.g. casual chat, gaming noise), return: {"actionable": false}
+            2. If actionable, return JSON with keys: "actionable" (true), "title", "deadline" (ISO string or null), "priority" (LOW, MEDIUM, HIGH, CRITICAL), "confidence" (0.0-1.0), "subject", "reasoning".
             3. "reasoning" should be a brief sentence explaining why this priority was chosen.
-            4. Respond ONLY with JSON or the word null. No markdown.`
+            4. Respond ONLY with valid JSON. No markdown. No conversational text.`
           }, {
             role: 'user',
             content: text
@@ -59,18 +59,21 @@ export class SemanticParser {
       const json = await response.json();
       const content = json.choices[0].message.content.trim();
 
-      if (content.toLowerCase() === 'null') return null;
-
       const sanitizedContent = content.substring(
         content.indexOf('{'),
         content.lastIndexOf('}') + 1
       );
 
-      return JSON.parse(sanitizedContent);
+      const parsed = JSON.parse(sanitizedContent);
+
+      // If the AI marked this as non-actionable, return null
+      if (parsed.actionable === false) return null;
+
+      return parsed;
 
     } catch (error: any) {
       console.error('[NLP Filter Error]:', error.message);
-      return null; // Default to discarding if inference fails to keep feed clean
+      return null;
     }
   }
 }
