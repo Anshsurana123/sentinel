@@ -7,7 +7,7 @@ import { prisma } from '../prisma';
 
 /**
  * The IngestionEngine Coordinator
- * Optimized for Cerebras inference and hardware-level deduplication.
+ * Enhanced with Semantic Filtering to discard non-actionable noise.
  */
 export class IngestionEngine {
   private static strategies: Record<string, IngestionStrategy<any>> = {
@@ -15,7 +15,7 @@ export class IngestionEngine {
     CANVAS: new CanvasStrategy(),
   };
 
-  static async process(source: string, payload: any): Promise<UniversalTask> {
+  static async process(source: string, payload: any): Promise<UniversalTask | null> {
     const strategy = this.strategies[source.toUpperCase()];
     if (!strategy) throw new Error(`Unsupported source: ${source}`);
 
@@ -31,8 +31,14 @@ export class IngestionEngine {
       return existingTask as any;
     }
 
-    // 2. Semantic Enrichment (Powered by Cerebras)
+    // 2. Semantic Filtering (Powered by Cerebras)
+    // Discards casual chatter if AI returns null
     const nlpData = await SemanticParser.extract(parsed.content || '');
+    
+    if (!nlpData) {
+      console.log(`[Sentinel Filter] Signal discarded as noise: ${parsed.fingerprint}`);
+      return null;
+    }
 
     // 3. Final Persistence with Enrichment
     const savedTask = await prisma.universalTask.create({
@@ -48,6 +54,7 @@ export class IngestionEngine {
           ...parsed.metadata,
           confidence: nlpData.confidence,
           subject: nlpData.subject,
+          reasoning: nlpData.reasoning, // Logic stored for UI display
           enriched_at: new Date().toISOString()
         }
       }

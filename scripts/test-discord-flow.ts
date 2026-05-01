@@ -40,8 +40,15 @@ async function runTest() {
     console.log(`\n=> Processing: ${scene.name}`);
     try {
       const task = await IngestionEngine.process('DISCORD', scene.payload);
+      
+      if (!task) {
+        console.log(`[FILTERED] Signal discarded as noise.`);
+        continue;
+      }
+
       console.log(`[SUCCESS] Result: [${task.priority}] ${task.title}`);
       console.log(`Confidence: ${(task.metadata as any).confidence}`);
+      console.log(`Reasoning: ${(task.metadata as any).reasoning || 'N/A'}`);
       console.log(`Fingerprint: ${task.fingerprint}`);
     } catch (e: any) {
       console.error(`[FAILURE] ${scene.name}:`, e.message);
@@ -49,7 +56,6 @@ async function runTest() {
   }
 }
 
-// Fixed Async Wrapper to prevent silent exits
 runTest()
   .then(() => console.log('\n=> SCRIPT FINISHED <='))
   .catch(err => {

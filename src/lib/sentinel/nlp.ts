@@ -6,26 +6,21 @@ export interface SemanticExtraction {
   priority: Priority;
   confidence: number;
   subject: string;
+  reasoning: string;
 }
 
 /**
  * SemanticParser Service - Powered by Cerebras
- * Optimized for ultra-low latency JSON extraction.
+ * Optimized for ultra-low latency JSON extraction and signal filtering.
  */
 export class SemanticParser {
   private static API_KEY = process.env.CEREBRAS_API_KEY;
   private static CEREBRAS_URL = 'https://api.cerebras.ai/v1/chat/completions';
   private static TIMEOUT_MS = 3000;
 
-  static async extract(text: string): Promise<SemanticExtraction> {
+  static async extract(text: string): Promise<SemanticExtraction | null> {
     if (!this.API_KEY || this.API_KEY === 'your_api_key_here') {
-      console.warn('[NLP] Cerebras API key missing.');
-      return { 
-        title: text.slice(0, 50), 
-        priority: 'LOW', 
-        confidence: 0, 
-        subject: 'Unknown' 
-      };
+      return null;
     }
 
     const controller = new AbortController();
@@ -43,12 +38,12 @@ export class SemanticParser {
           model: 'llama3.1-8b',
           messages: [{
             role: 'system',
-            content: `You are an expert student task extractor. Extract Subject, Task Title, and Deadline from student messages. 
+            content: `You are an expert student task extractor. 
             RULES:
-            1. Respond ONLY with valid JSON.
-            2. No conversational text. No markdown formatting.
-            3. Keys: "title", "deadline" (ISO string), "priority" (LOW, MEDIUM, HIGH, CRITICAL), "confidence" (0.0-1.0), "subject".
-            4. If it's casual chat or noise, set priority LOW and confidence 1.0.`
+            1. If the message contains NO actionable task, deadline, or academic signal (e.g. casual chat, gaming noise), return exactly: null.
+            2. If actionable, return JSON with keys: "title", "deadline" (ISO string), "priority" (LOW, MEDIUM, HIGH, CRITICAL), "confidence" (0.0-1.0), "subject", "reasoning".
+            3. "reasoning" should be a brief sentence explaining why this priority was chosen.
+            4. Respond ONLY with JSON or the word null. No markdown.`
           }, {
             role: 'user',
             content: text
@@ -59,15 +54,12 @@ export class SemanticParser {
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        // Explicit Error Logging for Cerebras
-        const errorText = await response.text();
-        console.error(`[CEREBRAS API ERROR]: Status ${response.status} - ${errorText}`);
-        throw new Error(`Cerebras API Failure: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Cerebras Error: ${response.status}`);
 
       const json = await response.json();
       const content = json.choices[0].message.content.trim();
+
+      if (content.toLowerCase() === 'null') return null;
 
       const sanitizedContent = content.substring(
         content.indexOf('{'),
@@ -77,18 +69,8 @@ export class SemanticParser {
       return JSON.parse(sanitizedContent);
 
     } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.error('[CEREBRAS API ERROR]: Request Timeout (Exceeded 3000ms)');
-      } else {
-        console.error('[CEREBRAS API ERROR]:', error.message);
-      }
-      
-      return { 
-        title: text.slice(0, 50), 
-        priority: 'MEDIUM', 
-        confidence: 0.1, 
-        subject: 'Extraction-Error' 
-      };
+      console.error('[NLP Filter Error]:', error.message);
+      return null; // Default to discarding if inference fails to keep feed clean
     }
   }
 }
