@@ -1,48 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IngestionEngine } from '@/lib/sentinel/engine';
 
-/**
- * POST /api/ingest
- * High-Performance Aggregation Endpoint.
- * Logic Flow: Envelope Validation -> Strategy Parsing -> DB Dedupe -> NLP Enrichment -> Persistence.
- */
 export async function POST(req: NextRequest) {
-  const startTime = Date.now();
-
+  const start = Date.now();
+  
   try {
-    const body = await req.json();
-    const { source, data } = body;
+    const { source, payload } = await req.json();
 
-    if (!source || !data) {
-      return NextResponse.json(
-        { error: 'Malformed Envelope: source and data are required.' }, 
-        { status: 400 }
-      );
+    if (!source || !payload) {
+      return NextResponse.json({ error: 'Missing source or payload' }, { status: 400 });
     }
 
-    // Engine handles Dedupe, Enrichment, and DB Write
-    const task = await IngestionEngine.process(source, data);
+    // Process through Ingestion Engine
+    const task = await IngestionEngine.process(source, payload);
+    const latency = Date.now() - start;
 
-    const latency = Date.now() - startTime;
-    console.log(`[Sentinel Ingest] Success | Source: ${source} | Latency: ${latency}ms`);
+    // Handle signals discarded as noise
+    if (!task) {
+      return NextResponse.json({ 
+        status: 'filtered', 
+        message: 'Signal discarded as noise by AI social filter',
+        latency_ms: latency
+      }, { status: 200 });
+    }
 
+    // Success response for actionable tasks
     return NextResponse.json({ 
       status: 'success', 
-      task_id: (task as any).id,
+      task_id: task.id,
       fingerprint: task.fingerprint,
-      enriched: !!(task as any).metadata?.extracted_at,
+      enriched: !!(task.metadata as any)?.enriched_at,
       latency_ms: latency
     }, { status: 201 });
 
   } catch (error: any) {
-    console.error('[Sentinel Critical Failure]', error);
-
-    const isValidationError = error.name === 'ZodError';
-    
+    console.error('[Ingest API Error]:', error.message);
     return NextResponse.json({ 
       status: 'error', 
-      type: isValidationError ? 'SCHEMA_VIOLATION' : 'PERSISTENCE_FAILURE',
-      message: error.message
-    }, { status: isValidationError ? 422 : 500 });
+      message: error.message 
+    }, { status: 500 });
   }
 }
