@@ -5,11 +5,15 @@ import FocusToggle from "@/components/FocusToggle";
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * The Anti-Portal: High-Contrast Task Feed
+ * Integrated with Focus Mode and Task Dismissal.
+ */
 export default async function AntiPortalPage() {
-  // Parallel fetch for UI state and tasks
+  // Use a safe catch to prevent page crash if table doesn't exist yet
   const [tasks, settings] = await Promise.all([
     prisma.universalTask.findMany({ orderBy: { createdAt: "desc" } }),
-    prisma.globalSettings.findUnique({ where: { id: "singleton" } })
+    prisma.globalSettings.findUnique({ where: { id: "singleton" } }).catch(() => null)
   ]);
 
   const isFocusMode = !!settings?.studyModeActive;
@@ -32,9 +36,10 @@ export default async function AntiPortalPage() {
         {/* Task Timeline */}
         <section className="space-y-8">
           {tasks.map((task) => {
-            const metadata = task.metadata as any;
+            const metadata = (task.metadata as any) || {};
             const isHigh = task.priority === "HIGH" || task.priority === "CRITICAL";
             const isLow = task.priority === "LOW";
+            const confidence = typeof metadata.confidence === 'number' ? metadata.confidence : 0;
 
             return (
               <div 
@@ -72,14 +77,15 @@ export default async function AntiPortalPage() {
                   {/* Semantic Metadata Footer + Actions */}
                   <footer className="pt-4 border-t border-current flex justify-between items-center opacity-60 text-[9px] uppercase tracking-[0.2em]">
                     <div className="flex gap-4">
-                      <span><span className="font-bold">SUB:</span> {metadata?.subject || "GENERAL"}</span>
-                      <span><span className="font-bold">CONF:</span> {(metadata?.confidence * 100 || 0).toFixed(0)}%</span>
+                      <span><span className="font-bold">SUB:</span> {metadata.subject || "GENERAL"}</span>
+                      <span><span className="font-bold">CONF:</span> {(confidence * 100).toFixed(0)}%</span>
                     </div>
                     
                     <DismissButton taskId={task.id} />
                   </footer>
                 </div>
 
+                {/* Source Tag */}
                 <div className="absolute -bottom-3 right-4 px-2 bg-black text-white border border-white text-[8px] font-bold tracking-widest">
                   SRC_{task.source}
                 </div>
