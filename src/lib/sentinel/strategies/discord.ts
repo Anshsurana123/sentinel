@@ -20,7 +20,6 @@ export class DiscordStrategy implements IngestionStrategy<any> {
         confidence: 1.0,
         subject: 'General Chat',
         reasoning: 'Direct ingestion from Discord listener',
-        authorId: data.author.id,
       },
       createdAt: new Date(data.timestamp),
     };
