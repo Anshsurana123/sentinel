@@ -3,7 +3,7 @@ import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
 import { MongoDBAtlasVectorSearch } from '@langchain/mongodb';
-import clientPromise from '../src/lib/sentinel/mongodb';
+import { MongoClient } from 'mongodb';
 
 // ═══════════════════════════════════════════════════════════════
 //  SENTINEL LINEAGE ENGINE — PDF SHREDDER
@@ -64,7 +64,12 @@ async function main() {
   // STAGE 3: CONNECT TO ATLAS
   // ───────────────────────────────────────────────
   console.log('\n[SHREDDER] STAGE 3 — Connecting to MongoDB Atlas...');
-  const client = await clientPromise;
+  if (!process.env.MONGODB_URI) {
+    console.error('[SHREDDER] FATAL: Missing MONGODB_URI environment variable.');
+    process.exit(1);
+  }
+  const client = new MongoClient(process.env.MONGODB_URI);
+  await client.connect();
   const db = client.db(DB_NAME);
   const collection = db.collection(COLLECTION_NAME);
   console.log(`[SHREDDER] Connected. Target: ${DB_NAME}.${COLLECTION_NAME}`);
@@ -98,7 +103,7 @@ async function main() {
         batch,
         embeddings,
         {
-          collection,
+          collection: collection as any,
           indexName: INDEX_NAME,
           textKey: 'text',
           embeddingKey: 'embedding',
@@ -127,6 +132,7 @@ async function main() {
   console.log(`[SHREDDER] Atlas Index: ${INDEX_NAME} (768 dims)`);
   console.log('═══════════════════════════════════════════════');
 
+  await client.close();
   process.exit(0);
 }
 
