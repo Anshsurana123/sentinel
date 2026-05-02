@@ -6,12 +6,20 @@ import { google } from 'googleapis';
  * All events default to the Asia/Kolkata timezone.
  */
 
-const SCOPES = ['https://www.googleapis.com/auth/calendar.events'];
+const SCOPES = [
+  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/calendar.events'
+];
 const TIMEZONE = 'Asia/Kolkata';
+
+// Properly format the private key to handle newline characters in environment variables
+const privateKey = process.env.GOOGLE_PRIVATE_KEY 
+  ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n') 
+  : undefined;
 
 const auth = new google.auth.JWT({
   email: process.env.GOOGLE_CLIENT_EMAIL,
-  key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  key: privateKey,
   scopes: SCOPES,
 });
 
