@@ -68,7 +68,7 @@ Return JSON: {"distraction": true/false, "reason": "brief explanation"}`
     }
   }
 
-  static async extract(text: string): Promise<SemanticExtraction | null> {
+  static async extract(text: string, referenceTime: string): Promise<SemanticExtraction | null> {
     if (!this.API_KEY || this.API_KEY === 'your_api_key_here') {
       return null;
     }
@@ -90,6 +90,9 @@ Return JSON: {"distraction": true/false, "reason": "brief explanation"}`
             role: 'system',
             content: `You are a ruthless, highly efficient Chief of Staff analyzing incoming messages.
             
+            REFERENCE TIME: The current date and time is ${referenceTime} (IST). 
+            You MUST use this to calculate exact ISO-8601 strings for the 'deadline' field when the user says relative terms like 'today', 'tomorrow', or 'next week'.
+            
             RULES:
             1. You are an elite intel extractor. You must capture ANY of the following Signals: explicit tasks, upcoming events (e.g., tests, meetings), deadlines, or critical academic information. Even if a message is just a statement of fact (like 'chem test today'), it is a high-priority Signal.
             2. Map academic topics (Physics, Chemistry, Math, CS) to the category: STUDY.
@@ -99,6 +102,8 @@ Return JSON: {"distraction": true/false, "reason": "brief explanation"}`
             6. For non-STUDY categories, return null for "quick_reference".
             7. Generate 1-3 lowercase, hyphenated "tags" (e.g. ["past-paper", "kinematics"]).
             8. If the message is just a normal chat message (e.g - heyy whats up) then return {"actionable": false}
+            9. If absolutely no deadline or event time can be inferred, return null for "deadline".
+            
             Return JSON: 
             {
               "actionable": true,

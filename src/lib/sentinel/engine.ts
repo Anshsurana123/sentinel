@@ -44,8 +44,9 @@ export class IngestionEngine {
       }
 
       // 2. Semantic Filtering & Enrichment (Powered by Cerebras)
-      // The prompt is handled in nlp.ts, but coordinated here.
-      const nlpData = await SemanticParser.extract(parsed.content || '');
+      // Capture current IST time for relative date resolution
+      const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+      const nlpData = await SemanticParser.extract(parsed.content || '', now);
       
       if (!nlpData) {
         console.log(`[Engine Filter] Signal discarded as non-actionable noise: ${parsed.fingerprint}`);
@@ -53,7 +54,6 @@ export class IngestionEngine {
       }
 
       // 3. Metadata Validation & Persistence
-      // Constructing the metadata object according to strict taxonomy
       const taskMetadata = {
         category: nlpData.category,
         tags: nlpData.tags.slice(0, 3).map(t => t.toLowerCase().replace(/\s+/g, '-')),
@@ -79,7 +79,7 @@ export class IngestionEngine {
       // Safely validate the task against the schema
       const validation = UniversalTaskSchema.safeParse({ ...finalTaskData, createdAt: new Date() });
       if (!validation.success) {
-        console.error(`[Engine Validation Error] Task schema mismatch:`, validation.error.format());
+        console.error(`[Engine Validation Error] Task schema mismatch:`, JSON.stringify(validation.error.format(), null, 2));
         return null; // Drop corrupted data rather than crashing the daemon
       }
 

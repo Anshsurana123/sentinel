@@ -22,7 +22,7 @@ export const UniversalTaskSchema = z.object({
     enriched_at: z.string().optional(),
   }),
   createdAt: z.date(),
-  expiresAt: z.date().optional(),
+  expiresAt: z.date().nullable().optional(),
 });
 
 export type UniversalTask = z.infer<typeof UniversalTaskSchema>;
