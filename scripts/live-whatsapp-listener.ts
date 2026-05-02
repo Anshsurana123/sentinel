@@ -96,6 +96,13 @@ client.on('message', async (message) => {
   if (message.isStatus) return;
   if (!message.body || message.body.trim().length === 0) return;
 
+  // ═══ FLOOD GATE: Only process live messages (within 60s) ═══
+  const now = Math.floor(Date.now() / 1000);
+  if ((now - message.timestamp) > 60) {
+    console.log(`[Flood Gate] Ignoring old message from ${message.from} (${now - message.timestamp}s old)`);
+    return;
+  }
+
   try {
     const contact = await message.getContact();
     const authorName = contact.pushname || contact.name || message.from;
