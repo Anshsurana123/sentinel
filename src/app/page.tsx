@@ -4,21 +4,38 @@ import { UniversalTask } from "@prisma/client";
 import DismissButton from "@/components/DismissButton";
 import FocusToggle from "@/components/FocusToggle";
 import WhatsAppConnector from "@/components/WhatsAppConnector";
+import Link from "next/link";
 
 export const dynamic = 'force-dynamic';
 
 /**
  * The Anti-Portal: High-Contrast Task Feed
- * Integrated with Focus Mode and Task Dismissal.
+ * Enhanced with URL-driven category filtering and AI Context Notes.
  */
-export default async function AntiPortalPage() {
-  // Use a safe catch to prevent page crash if table doesn't exist yet
+export default async function AntiPortalPage({ 
+  searchParams 
+}: { 
+  searchParams: { tab?: string } 
+}) {
+  const activeTab = searchParams.tab || 'ALL';
+
+  // Fetch data with safe catch
   const [tasks, settings] = await Promise.all([
     prisma.universalTask.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.globalSettings.findUnique({ where: { id: "singleton" } }).catch(() => null)
   ]);
 
   const isFocusMode = !!settings?.studyModeActive;
+
+  // Implement Filter Logic
+  const filteredTasks = tasks.filter((task) => {
+    const metadata = (task.metadata as any) || {};
+    if (activeTab === 'ALL') return true;
+    if (activeTab === 'EMERGENCY') return task.priority === 'CRITICAL';
+    return metadata.category === activeTab;
+  });
+
+  const TABS = ['ALL', 'STUDY', 'WORK', 'CHILL', 'EMERGENCY', 'OTHER'];
 
   return (
     <main className={`min-h-screen font-mono text-white selection:bg-white selection:text-black p-6 md:p-12 transition-colors duration-700 ${isFocusMode ? "bg-red-950/20" : "bg-black"}`}>
@@ -28,36 +45,49 @@ export default async function AntiPortalPage() {
         <header className="flex justify-between items-end border-b-2 border-white pb-8">
           <div>
             <h1 className="text-4xl font-bold uppercase tracking-tighter italic">The Sentinel</h1>
-            <p className="text-gray-500 mt-2 text-[10px] uppercase tracking-widest">
-              Anti-Portal Feed // Active Intelligence Blocks: {tasks.length}
+            <p className="text-[10px] text-gray-500 mt-2 font-bold uppercase tracking-[0.4em]">
+              Ingestion_Engine // Status: ACTIVE
             </p>
           </div>
           <FocusToggle active={isFocusMode} />
         </header>
 
-        {/* Task Timeline */}
-        <section className="space-y-8">
-          {tasks.map((task: UniversalTask) => { // Explicitly typed
-            const metadata = (task.metadata as any) || {};
-            const isHigh = task.priority === "HIGH" || task.priority === "CRITICAL";
-            const isLow = task.priority === "LOW";
-            const confidence = typeof metadata.confidence === 'number' ? metadata.confidence : 0;
-
+        {/* Brutalist Filter Bar */}
+        <nav className="flex flex-wrap gap-2">
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab;
             return (
-              <div 
-                key={task.id}
-                className={`group relative p-6 border-2 transition-all duration-300 rounded-none ${
-                  isHigh ? "bg-white text-black border-white" : 
-                  isLow ? "border-dashed border-gray-800 text-gray-500" : 
-                  "border-white hover:bg-white hover:text-black"
+              <Link
+                key={tab}
+                href={`/?tab=${tab}`}
+                className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-all border border-white ${
+                  isActive 
+                    ? "bg-white text-black" 
+                    : "bg-transparent text-white hover:bg-gray-800"
                 }`}
               >
-                {/* Priority Indicator Label */}
-                <div className={`absolute -top-3 left-4 px-2 text-[10px] font-bold uppercase border ${
-                  isHigh ? "bg-black text-white border-black" : "bg-white text-black border-white"
-                }`}>
-                  {task.priority}
-                </div>
+                {tab}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Signal Feed */}
+        <section className="space-y-16">
+          {filteredTasks.map((task) => {
+            const metadata = (task.metadata as any) || {};
+            const confidence = metadata.confidence || 0;
+            
+            return (
+              <div 
+                key={task.id} 
+                className="group relative border-l-4 border-white pl-8 py-2 hover:border-l-8 transition-all duration-300"
+              >
+                {/* Priority Indicator */}
+                <div className={`absolute top-0 -left-[6px] w-2 h-8 ${
+                  task.priority === 'CRITICAL' ? "bg-red-600 animate-pulse" : 
+                  task.priority === 'HIGH' ? "bg-orange-500" : "bg-white"
+                }`} />
 
                 {/* Content */}
                 <div className="space-y-4">
@@ -78,8 +108,8 @@ export default async function AntiPortalPage() {
 
                   {/* AI Quick Reference / Tutor Context */}
                   {metadata.quick_reference && (
-                    <div className="p-3 bg-white/5 border-l-2 border-white/20 text-[10px] text-gray-400 leading-tight italic">
-                      <span className="text-[8px] font-bold uppercase block mb-1 opacity-50 tracking-[0.2em]">AI Context // Tutor Note</span>
+                    <div className="p-3 bg-[#1a1a1a] border-l-2 border-white text-sm text-gray-300 leading-tight font-mono mt-2">
+                      <span className="text-[8px] font-bold uppercase block mb-1 opacity-50 tracking-[0.2em]">>> CONTEXT</span>
                       { metadata.quick_reference }
                     </div>
                   )}
@@ -89,6 +119,7 @@ export default async function AntiPortalPage() {
                     <div className="flex gap-4">
                       <span><span className="font-bold">SUB:</span> {metadata.subject || "GENERAL"}</span>
                       <span><span className="font-bold">CONF:</span> {(confidence * 100).toFixed(0)}%</span>
+                      <span><span className="font-bold">CAT:</span> {metadata.category || "OTHER"}</span>
                     </div>
                     
                     <DismissButton taskId={task.id} />
@@ -103,9 +134,9 @@ export default async function AntiPortalPage() {
             );
           })}
 
-          {tasks.length === 0 && (
+          {filteredTasks.length === 0 && (
             <div className="border-2 border-dashed border-gray-800 p-12 text-center text-gray-500 uppercase text-xs tracking-widest">
-              Zero Active Signals Detected.
+              Zero {activeTab} Signals Detected.
             </div>
           )}
         </section>
