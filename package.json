@@ -17,6 +17,7 @@
     "@langchain/core": "^1.1.43",
     "@langchain/google-genai": "^2.1.30",
     "@langchain/mongodb": "^1.2.0",
+    "@langchain/textsplitters": "^1.0.1",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "date-fns": "^4.1.0",
