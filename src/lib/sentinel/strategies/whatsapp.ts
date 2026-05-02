@@ -18,8 +18,13 @@ export class WhatsAppStrategy implements IngestionStrategy<any> {
       content: data.content,
       priority: 'MEDIUM',
       metadata: {
+        category: 'OTHER',
+        tags: ['whatsapp', 'raw-signal'],
+        quick_reference: null,
+        confidence: 1.0,
+        subject: 'General Chat',
+        reasoning: 'Direct ingestion from WhatsApp listener',
         author: data.author,
-        platform: 'whatsapp-web.js',
       },
       createdAt: new Date(data.timestamp),
     };

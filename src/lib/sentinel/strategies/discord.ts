@@ -14,8 +14,13 @@ export class DiscordStrategy implements IngestionStrategy<any> {
       content: data.content,
       priority: data.content.includes('!') ? 'HIGH' : 'MEDIUM',
       metadata: { 
+        category: 'OTHER',
+        tags: ['discord', 'raw-signal'],
+        quick_reference: null,
+        confidence: 1.0,
+        subject: 'General Chat',
+        reasoning: 'Direct ingestion from Discord listener',
         authorId: data.author.id,
-        channelType: 'guild_text' // Example static metadata
       },
       createdAt: new Date(data.timestamp),
     };

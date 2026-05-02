@@ -14,7 +14,12 @@ export class CanvasStrategy implements IngestionStrategy<any> {
       content: data.description || 'No description provided',
       priority: 'HIGH', // Canvas alerts are usually high priority
       metadata: {
-        todoDate: data.todo_date
+        category: 'STUDY',
+        tags: ['canvas', 'academic'],
+        quick_reference: data.todo_date ? `Due Date: ${data.todo_date}` : null,
+        confidence: 1.0,
+        subject: 'Coursework',
+        reasoning: 'Automated ingestion from LMS',
       },
       createdAt: new Date(),
     };
