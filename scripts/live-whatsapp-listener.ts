@@ -4,8 +4,6 @@ import { Client, LocalAuth } from 'whatsapp-web.js';
 import { IngestionEngine } from '../src/lib/sentinel/engine';
 import { SemanticParser } from '../src/lib/sentinel/nlp';
 import { prisma } from '../src/lib/prisma';
-import { generateDailyBriefing } from '../src/lib/sentinel/briefing';
-import { subHours } from 'date-fns';
 
 /**
  * RENDER HEALTH CHECK SERVER (WhatsApp Instance)
@@ -74,45 +72,11 @@ client.on('ready', async () => {
   console.log('🟢 Sentinel Secondary Core Online: WhatsApp Linked.');
   
   // Clear QR and mark as connected
-  const state = await prisma.systemState.upsert({
+  await prisma.systemState.upsert({
     where: { id: 'global' },
     update: { whatsappQr: null, whatsappConnected: true },
     create: { id: 'global', whatsappQr: null, whatsappConnected: true },
   });
-
-  // ═══════════════════════════════════════════════════
-  // MORNING BRIEFING (Startup Catch-up)
-  // ═══════════════════════════════════════════════════
-  const cooldownPeriod = subHours(new Date(), 12);
-  
-  if (!state.lastBriefingAt || state.lastBriefingAt < cooldownPeriod) {
-    console.log('[Briefing] Cooldown expired. Generating tactical briefing...');
-    
-    const briefingText = await generateDailyBriefing();
-    const targetNumber = process.env.MY_PERSONAL_NUMBER;
-
-    if (briefingText && targetNumber) {
-      try {
-        // Ensure the number is formatted correctly for whatsapp-web.js (usually @c.us)
-        const chatID = targetNumber.includes('@c.us') ? targetNumber : `${targetNumber}@c.us`;
-        await client.sendMessage(chatID, `*OFFICIAL SENTINEL BRIEFING*\n\n${briefingText}`);
-        
-        // Update cooldown timestamp
-        await prisma.systemState.update({
-          where: { id: 'global' },
-          data: { lastBriefingAt: new Date() }
-        });
-        
-        console.log('[Briefing] Success: Tactical briefing transmitted.');
-      } catch (err: any) {
-        console.error('[Briefing] Transmission failed:', err.message);
-      }
-    } else {
-      console.log('[Briefing] No actionable signals or missing personal number. Skipping transmission.');
-    }
-  } else {
-    console.log('[Briefing] Standing down: Cooldown active.');
-  }
 });
 
 client.on('disconnected', async (reason: string) => {
