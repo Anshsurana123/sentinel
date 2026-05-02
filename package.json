@@ -14,6 +14,7 @@
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
     "@langchain/community": "^1.1.27",
+    "@langchain/core": "^1.1.43",
     "@langchain/google-genai": "^2.1.30",
     "@langchain/mongodb": "^1.2.0",
     "@prisma/adapter-pg": "^7.8.0",
