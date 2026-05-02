@@ -109,7 +109,7 @@ export default async function AntiPortalPage({
                   {/* AI Quick Reference / Tutor Context */}
                   {metadata.quick_reference && (
                     <div className="p-3 bg-[#1a1a1a] border-l-2 border-white text-sm text-gray-300 leading-tight font-mono mt-2">
-                      <span className="text-[8px] font-bold uppercase block mb-1 opacity-50 tracking-[0.2em]">>> CONTEXT</span>
+                      <span className="text-[8px] font-bold uppercase block mb-1 opacity-50 tracking-[0.2em]">{" >> CONTEXT"}</span>
                       { metadata.quick_reference }
                     </div>
                   )}
