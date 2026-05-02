@@ -23,6 +23,10 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "The Sentinel",
   description: "Autonomous Intelligence Feed",
+  icons: {
+    icon: '/icon-192x192.png.png',
+    apple: '/icon-192x192.png.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
