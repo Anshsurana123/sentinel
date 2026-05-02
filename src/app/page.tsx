@@ -12,12 +12,11 @@ export const dynamic = 'force-dynamic';
  * The Anti-Portal: High-Contrast Task Feed
  * Enhanced with URL-driven category filtering and AI Context Notes.
  */
-export default async function AntiPortalPage({ 
-  searchParams 
-}: { 
-  searchParams: { tab?: string } 
+export default async function AntiPortalPage(props: { 
+  searchParams: Promise<{ tab?: string }> 
 }) {
-  const activeTab = searchParams.tab || 'ALL';
+  const searchParams = await props.searchParams;
+  const activeTab = searchParams.tab?.toUpperCase() || 'ALL';
 
   // Fetch data with safe catch
   const [tasks, settings] = await Promise.all([
