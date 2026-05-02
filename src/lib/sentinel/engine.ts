@@ -5,6 +5,7 @@ import { IngestionStrategy } from './strategies/base';
 import { UniversalTaskSchema, UniversalTask } from './schema';
 import { SemanticParser } from './nlp';
 import { prisma } from '../prisma';
+import { pushToCalendar } from './gcal';
 
 /**
  * The IngestionEngine Coordinator
@@ -44,7 +45,6 @@ export class IngestionEngine {
       }
 
       // 2. Semantic Filtering & Enrichment (Powered by Cerebras)
-      // Capture current IST time for relative date resolution
       const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
       const nlpData = await SemanticParser.extract(parsed.content || '', now);
       
@@ -80,7 +80,7 @@ export class IngestionEngine {
       const validation = UniversalTaskSchema.safeParse({ ...finalTaskData, createdAt: new Date() });
       if (!validation.success) {
         console.error(`[Engine Validation Error] Task schema mismatch:`, JSON.stringify(validation.error.format(), null, 2));
-        return null; // Drop corrupted data rather than crashing the daemon
+        return null; 
       }
 
       const savedTask = await prisma.universalTask.create({
@@ -92,11 +92,27 @@ export class IngestionEngine {
       });
 
       console.log(`[Engine Success] Ingested ${sourceKey} signal: ${savedTask.title} [${nlpData.category}]`);
+
+      // 4. Google Calendar Integration
+      // Only push if a deadline was successfully extracted and resolved
+      if (nlpData.deadline) {
+        try {
+          await pushToCalendar(
+            savedTask.title,
+            nlpData.quick_reference || savedTask.content || 'Synced from Sentinel',
+            nlpData.deadline
+          );
+        } catch (calError) {
+          // Failure to push to calendar should NOT crash the ingestion flow
+          console.warn('[Engine Hook] Failed to sync to Google Calendar, but task was saved.');
+        }
+      }
+
       return savedTask as any;
 
     } catch (error: any) {
       console.error(`[Engine Critical Error] Processing failed for ${sourceKey}:`, error.message);
-      return null; // Preserve daemon uptime
+      return null; 
     }
   }
 }
