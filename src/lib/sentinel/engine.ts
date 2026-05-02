@@ -8,7 +8,7 @@ import { prisma } from '../prisma';
 
 /**
  * The IngestionEngine Coordinator
- * Enhanced with Semantic Filtering to discard non-actionable noise.
+ * Orchestrates cross-platform signal ingestion, deduplication, and AI-driven enrichment.
  */
 export class IngestionEngine {
   private static strategies: Record<string, IngestionStrategy<any>> = {
@@ -17,53 +17,86 @@ export class IngestionEngine {
     WHATSAPP: new WhatsAppStrategy(),
   };
 
+  /**
+   * Process incoming signals from various sources.
+   * Enforces strict category taxonomy and AI-generated AS-Level contextual notes.
+   */
   static async process(source: string, payload: any): Promise<UniversalTask | null> {
-    const strategy = this.strategies[source.toUpperCase()];
-    if (!strategy) throw new Error(`Unsupported source: ${source}`);
-
-    const parsed = strategy.parse(payload);
-
-    // 1. Hardware-Level Deduplication Check
-    const existingTask = await prisma.universalTask.findUnique({
-      where: { fingerprint: parsed.fingerprint }
-    });
-
-    if (existingTask) {
-      console.log(`[Sentinel] Dedupe Hit: ${parsed.fingerprint}`);
-      return existingTask as any;
-    }
-
-    // 2. Semantic Filtering (Powered by Cerebras)
-    const nlpData = await SemanticParser.extract(parsed.content || '');
+    const sourceKey = source.toUpperCase();
+    const strategy = this.strategies[sourceKey];
     
-    if (!nlpData) {
-      console.log(`[Sentinel Filter] Signal discarded as noise: ${parsed.fingerprint}`);
-      return null;
+    if (!strategy) {
+      console.error(`[Engine] Unsupported signal source: ${source}`);
+      throw new Error(`Unsupported source: ${source}`);
     }
 
-    // 3. Final Persistence with Enrichment
-    const savedTask = await prisma.universalTask.create({
-      data: {
+    try {
+      const parsed = strategy.parse(payload);
+
+      // 1. Hardware-Level Deduplication Check (Fingerprint)
+      const existingTask = await prisma.universalTask.findUnique({
+        where: { fingerprint: parsed.fingerprint }
+      });
+
+      if (existingTask) {
+        console.log(`[Engine] Dedupe Hit: ${parsed.fingerprint}`);
+        return existingTask as any;
+      }
+
+      // 2. Semantic Filtering & Enrichment (Powered by Cerebras)
+      // The prompt is handled in nlp.ts, but coordinated here.
+      const nlpData = await SemanticParser.extract(parsed.content || '');
+      
+      if (!nlpData) {
+        console.log(`[Engine Filter] Signal discarded as non-actionable noise: ${parsed.fingerprint}`);
+        return null;
+      }
+
+      // 3. Metadata Validation & Persistence
+      // Constructing the metadata object according to strict taxonomy
+      const taskMetadata = {
+        category: nlpData.category,
+        tags: nlpData.tags.slice(0, 3).map(t => t.toLowerCase().replace(/\s+/g, '-')),
+        quick_reference: nlpData.category === 'STUDY' ? nlpData.quick_reference : null,
+        confidence: nlpData.confidence,
+        subject: nlpData.subject,
+        reasoning: nlpData.reasoning,
+        enriched_at: new Date().toISOString()
+      };
+
+      // Final Zod verification before saving
+      const finalTaskData = {
         fingerprint: parsed.fingerprint,
-        source: parsed.source as any,
+        source: parsed.source,
         externalId: parsed.externalId,
         title: nlpData.title || parsed.title,
         content: parsed.content,
         priority: nlpData.priority,
+        metadata: taskMetadata,
         expiresAt: nlpData.deadline ? new Date(nlpData.deadline) : null,
-        metadata: {
-          ...parsed.metadata,
-          category: nlpData.category,
-          tags: nlpData.tags,
-          quick_reference: nlpData.quick_reference,
-          confidence: nlpData.confidence,
-          subject: nlpData.subject,
-          reasoning: nlpData.reasoning,
-          enriched_at: new Date().toISOString()
-        }
-      }
-    });
+      };
 
-    return savedTask as any;
+      // Safely validate the task against the schema
+      const validation = UniversalTaskSchema.safeParse({ ...finalTaskData, createdAt: new Date() });
+      if (!validation.success) {
+        console.error(`[Engine Validation Error] Task schema mismatch:`, validation.error.format());
+        return null; // Drop corrupted data rather than crashing the daemon
+      }
+
+      const savedTask = await prisma.universalTask.create({
+        data: {
+          ...finalTaskData,
+          metadata: taskMetadata as any,
+          createdAt: new Date(),
+        }
+      });
+
+      console.log(`[Engine Success] Ingested ${sourceKey} signal: ${savedTask.title} [${nlpData.category}]`);
+      return savedTask as any;
+
+    } catch (error: any) {
+      console.error(`[Engine Critical Error] Processing failed for ${sourceKey}:`, error.message);
+      return null; // Preserve daemon uptime
+    }
   }
 }

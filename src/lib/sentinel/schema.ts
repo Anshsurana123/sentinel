@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const SourceType = z.enum(['DISCORD', 'CANVAS', 'WHATSAPP', 'SYSTEM', 'WEBHOOK']);
 
-export const CategoryEnum = z.enum(['PHYSICS', 'CHEMISTRY', 'MATH', 'CS', 'DEV', 'BUSINESS', 'LIFE']);
+export const CategoryEnum = z.enum(['STUDY', 'WORK', 'CHILL', 'OTHER']);
 
 export const UniversalTaskSchema = z.object({
   id: z.string().uuid().optional(),
@@ -12,7 +12,15 @@ export const UniversalTaskSchema = z.object({
   title: z.string().min(1),
   content: z.string().optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
-  metadata: z.record(z.string(), z.any()), // Keep record for DB flexibility but we type it in code
+  metadata: z.object({
+    category: CategoryEnum,
+    tags: z.array(z.string()).max(3),
+    quick_reference: z.string().nullable(),
+    confidence: z.number(),
+    subject: z.string(),
+    reasoning: z.string(),
+    enriched_at: z.string().optional(),
+  }),
   createdAt: z.date(),
   expiresAt: z.date().optional(),
 });
@@ -37,7 +45,7 @@ export const CanvasPayloadSchema = z.object({
 export const WhatsAppPayloadSchema = z.object({
   id: z.string(),
   content: z.string(),
-  author: z.string(),     // phone number or contact name
+  author: z.string(),
   timestamp: z.string(),
 });
 

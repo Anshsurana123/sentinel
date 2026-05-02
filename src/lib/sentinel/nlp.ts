@@ -7,7 +7,7 @@ export interface SemanticExtraction {
   confidence: number;
   subject: string;
   reasoning: string;
-  category: 'PHYSICS' | 'CHEMISTRY' | 'MATH' | 'CS' | 'DEV' | 'BUSINESS' | 'LIFE';
+  category: 'STUDY' | 'WORK' | 'CHILL' | 'OTHER';
   tags: string[];
   quick_reference: string | null;
   actionable: boolean;
@@ -46,7 +46,7 @@ export class SemanticParser {
           model: 'llama3.1-8b',
           messages: [{
             role: 'system',
-            content: `You are a student focus guard. Classify if a Discord message is a DISTRACTION from studying.
+            content: `You are a student focus guard. Classify if a message is a DISTRACTION from studying.
 Distractions include: gaming invites, hanging out, watching shows, social plans, memes, off-topic chat.
 NOT distractions: homework questions, study groups, academic deadlines, project discussions.
 Return JSON: {"distraction": true/false, "reason": "brief explanation"}`
@@ -61,8 +61,7 @@ Return JSON: {"distraction": true/false, "reason": "brief explanation"}`
       clearTimeout(timeoutId);
       if (!response.ok) throw new Error(`Cerebras Error: ${response.status}`);
       const json = await response.json();
-      const content = json.choices[0].message.content.trim();
-      return JSON.parse(content);
+      return JSON.parse(json.choices[0].message.content);
     } catch (error: any) {
       console.error('[Intent Classifier Error]:', error.message);
       return { distraction: false, reason: 'Classification failed' };
@@ -89,14 +88,16 @@ Return JSON: {"distraction": true/false, "reason": "brief explanation"}`
           model: 'llama3.1-8b',
           messages: [{
             role: 'system',
-            content: `You are a ruthless, highly efficient Chief of Staff. Extract tasks and deadlines from the incoming message.
+            content: `You are a ruthless, highly efficient Chief of Staff analyzing incoming messages.
             
             RULES:
             1. If no task or actionable intel is present, return: {"actionable": false}
-            2. Classify the task into EXACTLY one category: PHYSICS, CHEMISTRY, MATH, CS, DEV, BUSINESS, LIFE.
-            3. If the category is PHYSICS, CHEMISTRY, MATH, or CS, act as a Cambridge AS-Level tutor. Fill "quick_reference" with a 1-2 sentence core concept, formula, or critical correction related to the topic.
-            4. Provide exactly 1-3 relevant "tags" (e.g. ["kinematics", "past-paper"]).
-            5. Priority MUST be one of: LOW, MEDIUM, HIGH, CRITICAL.
+            2. Map academic topics (Physics, Chemistry, Math, CS) to the category: STUDY.
+            3. Map coding, development, and business logistics to the category: WORK.
+            4. Map social, gaming, and general life to CHILL or OTHER.
+            5. CRITICAL: If the category is STUDY, you MUST act as a Cambridge AS-Level tutor. Extract the core academic concept and write a 1-2 sentence "quick_reference" containing a vital formula, definition, or concept reminder. 
+            6. For non-STUDY categories, return null for "quick_reference".
+            7. Generate 1-3 lowercase, hyphenated "tags" (e.g. ["past-paper", "kinematics"]).
             
             Return JSON: 
             {
@@ -104,9 +105,9 @@ Return JSON: {"distraction": true/false, "reason": "brief explanation"}`
               "title": "Clear task summary",
               "deadline": "ISO string or null",
               "priority": "HIGH",
-              "category": "PHYSICS",
-              "tags": ["kinematics"],
-              "quick_reference": "Formula for acceleration: a = (v-u)/t. Ensure units are m/s^2.",
+              "category": "STUDY",
+              "tags": ["past-paper", "mechanics"],
+              "quick_reference": "Work Done = Force x displacement in the direction of force (W=Fs cosθ).",
               "confidence": 0.95,
               "subject": "Main topic",
               "reasoning": "Why this priority"
@@ -123,8 +124,7 @@ Return JSON: {"distraction": true/false, "reason": "brief explanation"}`
       if (!response.ok) throw new Error(`Cerebras Error: ${response.status}`);
 
       const json = await response.json();
-      const content = json.choices[0].message.content.trim();
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(json.choices[0].message.content);
 
       if (parsed.actionable === false) return null;
       return parsed;
