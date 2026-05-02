@@ -53,6 +53,9 @@ export class IngestionEngine {
         expiresAt: nlpData.deadline ? new Date(nlpData.deadline) : null,
         metadata: {
           ...parsed.metadata,
+          category: nlpData.category,
+          tags: nlpData.tags,
+          quick_reference: nlpData.quick_reference,
           confidence: nlpData.confidence,
           subject: nlpData.subject,
           reasoning: nlpData.reasoning,

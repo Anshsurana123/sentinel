@@ -76,6 +76,14 @@ export default async function AntiPortalPage() {
                     </p>
                   )}
 
+                  {/* AI Quick Reference / Tutor Context */}
+                  {metadata.quick_reference && (
+                    <div className="p-3 bg-white/5 border-l-2 border-white/20 text-[10px] text-gray-400 leading-tight italic">
+                      <span className="text-[8px] font-bold uppercase block mb-1 opacity-50 tracking-[0.2em]">AI Context // Tutor Note</span>
+                      { metadata.quick_reference }
+                    </div>
+                  )}
+
                   {/* Semantic Metadata Footer + Actions */}
                   <footer className="pt-4 border-t border-current flex justify-between items-center opacity-60 text-[9px] uppercase tracking-[0.2em]">
                     <div className="flex gap-4">

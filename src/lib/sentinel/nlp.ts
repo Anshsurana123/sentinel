@@ -7,6 +7,10 @@ export interface SemanticExtraction {
   confidence: number;
   subject: string;
   reasoning: string;
+  category: 'PHYSICS' | 'CHEMISTRY' | 'MATH' | 'CS' | 'DEV' | 'BUSINESS' | 'LIFE';
+  tags: string[];
+  quick_reference: string | null;
+  actionable: boolean;
 }
 
 export interface IntentClassification {
@@ -16,24 +20,14 @@ export interface IntentClassification {
 
 /**
  * SemanticParser Service - Powered by Cerebras
- * 
- * Two pipelines:
- *   1. classifyIntent() — Lightweight binary classifier for distraction detection
- *   2. extract()        — Full task extraction with structured JSON output
  */
 export class SemanticParser {
   private static API_KEY = process.env.CEREBRAS_API_KEY;
   private static CEREBRAS_URL = 'https://api.cerebras.ai/v1/chat/completions';
   private static TIMEOUT_MS = 3000;
 
-  /**
-   * PIPELINE 1: Intent Classifier
-   * Lightweight call — only determines if a message is a distraction.
-   * Uses a minimal prompt for speed and low token cost.
-   */
   static async classifyIntent(text: string): Promise<IntentClassification> {
     if (!this.API_KEY || this.API_KEY === 'your_api_key_here') {
-      // No API key — fallback to "not a distraction" so messages pass through
       return { distraction: false, reason: 'No API key configured' };
     }
 
@@ -66,24 +60,15 @@ Return JSON: {"distraction": true/false, "reason": "brief explanation"}`
 
       clearTimeout(timeoutId);
       if (!response.ok) throw new Error(`Cerebras Error: ${response.status}`);
-
       const json = await response.json();
       const content = json.choices[0].message.content.trim();
-      const sanitized = content.substring(content.indexOf('{'), content.lastIndexOf('}') + 1);
-
-      return JSON.parse(sanitized);
-
+      return JSON.parse(content);
     } catch (error: any) {
       console.error('[Intent Classifier Error]:', error.message);
-      // On error, default to NOT a distraction (fail-open for messages)
       return { distraction: false, reason: 'Classification failed' };
     }
   }
 
-  /**
-   * PIPELINE 2: Full Task Extractor
-   * Extracts structured academic task data from messages.
-   */
   static async extract(text: string): Promise<SemanticExtraction | null> {
     if (!this.API_KEY || this.API_KEY === 'your_api_key_here') {
       return null;
@@ -104,12 +89,28 @@ Return JSON: {"distraction": true/false, "reason": "brief explanation"}`
           model: 'llama3.1-8b',
           messages: [{
             role: 'system',
-            content: `You are an expert student task extractor.
-RULES:
-1. If the message contains NO actionable task, deadline, or academic signal, return: {"actionable": false}
-2. If actionable, return JSON with keys: "actionable" (true), "title", "deadline" (ISO string or null), "priority" (LOW, MEDIUM, HIGH, CRITICAL), "confidence" (0.0-1.0), "subject", "reasoning".
-3. "reasoning" should be a brief sentence explaining why this priority was chosen.
-4. Respond ONLY with valid JSON. No markdown. No conversational text.`
+            content: `You are a ruthless, highly efficient Chief of Staff. Extract tasks and deadlines from the incoming message.
+            
+            RULES:
+            1. If no task or actionable intel is present, return: {"actionable": false}
+            2. Classify the task into EXACTLY one category: PHYSICS, CHEMISTRY, MATH, CS, DEV, BUSINESS, LIFE.
+            3. If the category is PHYSICS, CHEMISTRY, MATH, or CS, act as a Cambridge AS-Level tutor. Fill "quick_reference" with a 1-2 sentence core concept, formula, or critical correction related to the topic.
+            4. Provide exactly 1-3 relevant "tags" (e.g. ["kinematics", "past-paper"]).
+            5. Priority MUST be one of: LOW, MEDIUM, HIGH, CRITICAL.
+            
+            Return JSON: 
+            {
+              "actionable": true,
+              "title": "Clear task summary",
+              "deadline": "ISO string or null",
+              "priority": "HIGH",
+              "category": "PHYSICS",
+              "tags": ["kinematics"],
+              "quick_reference": "Formula for acceleration: a = (v-u)/t. Ensure units are m/s^2.",
+              "confidence": 0.95,
+              "subject": "Main topic",
+              "reasoning": "Why this priority"
+            }`
           }, {
             role: 'user',
             content: text
@@ -123,11 +124,9 @@ RULES:
 
       const json = await response.json();
       const content = json.choices[0].message.content.trim();
-      const sanitized = content.substring(content.indexOf('{'), content.lastIndexOf('}') + 1);
-      const parsed = JSON.parse(sanitized);
+      const parsed = JSON.parse(content);
 
       if (parsed.actionable === false) return null;
-
       return parsed;
 
     } catch (error: any) {

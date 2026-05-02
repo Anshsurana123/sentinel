@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 export const SourceType = z.enum(['DISCORD', 'CANVAS', 'WHATSAPP', 'SYSTEM', 'WEBHOOK']);
 
+export const CategoryEnum = z.enum(['PHYSICS', 'CHEMISTRY', 'MATH', 'CS', 'DEV', 'BUSINESS', 'LIFE']);
+
 export const UniversalTaskSchema = z.object({
   id: z.string().uuid().optional(),
   fingerprint: z.string(), // SHA-256 hash for deduplication
@@ -10,7 +12,7 @@ export const UniversalTaskSchema = z.object({
   title: z.string().min(1),
   content: z.string().optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
-  metadata: z.record(z.string(), z.any()),
+  metadata: z.record(z.string(), z.any()), // Keep record for DB flexibility but we type it in code
   createdAt: z.date(),
   expiresAt: z.date().optional(),
 });
