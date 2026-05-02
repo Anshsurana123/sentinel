@@ -48,8 +48,9 @@ model GlobalSettings {
 }
 
 model SystemState {
-  id                 String   @id @default("global")
+  id                 String    @id @default("global")
   whatsappQr         String?
-  whatsappConnected  Boolean  @default(false)
-  updatedAt          DateTime @updatedAt
+  whatsappConnected  Boolean   @default(false)
+  lastBriefingAt     DateTime?
+  updatedAt          DateTime  @updatedAt
 }
