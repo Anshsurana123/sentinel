@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { genAI } from "@/lib/gemini";
+import { GoogleAIFileManager } from "@google/generative-ai/server";
+
+// Allow this route to run up to 60 seconds on Vercel to handle large Gemini queries
+export const maxDuration = 60;
 
 /**
  * The system prompt turns Gemini into a strict, deterministic extraction tool.
@@ -21,78 +25,78 @@ If you cannot find relevant text, set found to false and exact_sentence to null.
 
 /**
  * POST /api/papers/query
- *
- * Body JSON:
- *   - paperId: string   (the Paper record ID from Supabase)
- *   - claim:   string   (the claim to fact-check against the document)
- *
- * Returns the extraction result with verdict, exact sentence, and page number.
  */
 export async function POST(req: NextRequest) {
   let body: { paperId?: string; claim?: string };
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   const { paperId, claim } = body;
-
   if (!paperId || !claim) {
-    return NextResponse.json(
-      { error: "Both 'paperId' and 'claim' are required" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Both 'paperId' and 'claim' are required" }, { status: 400 });
   }
 
   // --- Look up the paper ---
   const paper = await prisma.paper.findUnique({ where: { id: paperId } });
 
-  if (!paper?.geminiUri) {
-    return NextResponse.json(
-      { error: "Paper not found or not yet uploaded to Gemini" },
-      { status: 404 }
-    );
+  if (!paper?.geminiUri || !paper?.geminiFileId) {
+    return NextResponse.json({ error: "Paper not found or not yet uploaded to Gemini" }, { status: 404 });
+  }
+
+  // --- Check File State ---
+  try {
+    const fileManager = new GoogleAIFileManager(process.env.GOOGLE_API_KEY!);
+    const geminiFile = await fileManager.getFile(paper.geminiFileId);
+    
+    if (geminiFile.state === "PROCESSING") {
+      return NextResponse.json({ error: "Gemini is still indexing this PDF. Please wait a minute and try again." }, { status: 422 });
+    } else if (geminiFile.state === "FAILED") {
+      return NextResponse.json({ error: "Gemini failed to index this PDF. It might be corrupt or unreadable." }, { status: 422 });
+    }
+  } catch (err) {
+    console.error("[papers/query] Failed to check file state:", err);
   }
 
   // --- Query Gemini with the file URI + claim ---
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     systemInstruction: EXTRACTION_SYSTEM_PROMPT,
   });
 
-  const result = await model.generateContent([
-    {
-      fileData: {
-        mimeType: "application/pdf",
-        fileUri: paper.geminiUri,
-      },
-    },
-    {
-      text: `Find text in this document relevant to the following claim: "${claim}"`,
-    },
-  ]);
-
-  const raw = result.response.text();
-
-  // Strip any accidental markdown fences the model might emit
-  const clean = raw.replace(/```json|```/g, "").trim();
-
   try {
+    const result = await model.generateContent([
+      {
+        fileData: {
+          mimeType: "application/pdf",
+          fileUri: paper.geminiUri,
+        },
+      },
+      {
+        text: `Find text in this document relevant to the following claim: "${claim}"`,
+      },
+    ]);
+
+    const raw = result.response.text();
+    const clean = raw.replace(/```json|```/g, "").trim();
+
     const parsed = JSON.parse(clean);
     return NextResponse.json({
       ...parsed,
       paperTitle: paper.title,
       paperId: paper.id,
     });
-  } catch {
-    console.error("[papers/query] JSON parse failed. Raw output:", raw);
-    return NextResponse.json(
-      { error: "Gemini returned unparseable output", raw },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error("[papers/query] Gemini Generation Error:", err);
+    
+    // Check if it's a quota issue
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("429") || msg.includes("Quota")) {
+      return NextResponse.json({ error: "Gemini API free tier quota exceeded. Please try again later." }, { status: 429 });
+    }
+    
+    return NextResponse.json({ error: "Failed to extract lineage from document." }, { status: 500 });
   }
 }
