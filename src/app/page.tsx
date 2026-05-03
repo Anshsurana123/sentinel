@@ -55,6 +55,12 @@ export default async function AntiPortalPage(props: {
             >
               Lineage Engine →
             </Link>
+            <Link
+              href="/rosetta"
+              className="px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] border-2 border-[#00ff41] text-[#00ff41] hover:bg-[#00ff41]/10 hover:text-white transition-all duration-300"
+            >
+              Rosetta Stone →
+            </Link>
             <FocusToggle active={isFocusMode} />
           </div>
         </header>
