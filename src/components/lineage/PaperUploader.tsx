@@ -34,22 +34,48 @@ export default function PaperUploader({ onUploadComplete, onMount }: Props) {
     setUploading(true);
     setStatus({ type: "idle", message: "" });
 
-    const formData = new FormData();
-    formData.append("pdf", file);
-    formData.append("title", file.name.replace(/\.pdf$/i, ""));
-
     try {
-      const res = await fetch("/api/papers/upload", {
+      const title = file.name.replace(/\.pdf$/i, "");
+
+      // 1. Get resumable upload URL from backend (bypasses Vercel limits)
+      const startRes = await fetch("/api/papers/upload/start", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          size: file.size,
+          mimeType: "application/pdf",
+        }),
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Upload failed (${res.status})`);
-      }
+      if (!startRes.ok) throw new Error("Failed to start upload session");
+      const { uploadUrl } = await startRes.json();
 
-      const data = await res.json();
+      // 2. Upload directly from browser to Gemini File API
+      const geminiRes = await fetch(uploadUrl, {
+        method: "POST",
+        headers: {
+          "X-Goog-Upload-Command": "upload, finalize",
+          "X-Goog-Upload-Offset": "0",
+        },
+        body: file,
+      });
+
+      if (!geminiRes.ok) throw new Error("Direct upload to Gemini failed");
+      const geminiData = await geminiRes.json();
+      const geminiUri = geminiData.file.uri;
+      const geminiFileId = geminiData.file.name;
+
+      // 3. Save the result in our database
+      const finishRes = await fetch("/api/papers/upload/finish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, geminiUri, geminiFileId }),
+      });
+
+      if (!finishRes.ok) throw new Error("Failed to save paper metadata");
+      const data = await finishRes.json();
+
       setStatus({
         type: "success",
         message: `"${data.title}" indexed by Gemini`,
