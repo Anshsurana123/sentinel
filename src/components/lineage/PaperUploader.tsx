@@ -36,13 +36,14 @@ export default function PaperUploader({ onUploadComplete, onMount }: Props) {
 
     try {
       const title = file.name.replace(/\.pdf$/i, "");
+      const uniqueTitle = `${title}_${Date.now()}`;
 
       // 1. Get resumable upload URL from backend (bypasses Vercel limits)
       const startRes = await fetch("/api/papers/upload/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title,
+          title: uniqueTitle,
           size: file.size,
           mimeType: "application/pdf",
         }),
@@ -51,47 +52,34 @@ export default function PaperUploader({ onUploadComplete, onMount }: Props) {
       if (!startRes.ok) throw new Error("Failed to start upload session");
       const { uploadUrl } = await startRes.json();
 
-      // 2. Chunk the file and proxy via Next.js to bypass Vercel limits & CORS
-      const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunks
-      let offset = 0;
-      let geminiData: any = null;
-
-      while (offset < file.size) {
-        const chunk = file.slice(offset, offset + CHUNK_SIZE);
-        const isFinal = offset + CHUNK_SIZE >= file.size;
-
-        const chunkRes = await fetch("/api/papers/upload/chunk", {
+      // 2. Upload directly from browser to Gemini File API
+      // We expect this to throw "TypeError: Failed to fetch" because of a known
+      // bug in Gemini's API where it doesn't return CORS headers on success.
+      try {
+        await fetch(uploadUrl, {
           method: "POST",
           headers: {
-            "x-upload-url": uploadUrl,
-            "x-upload-offset": offset.toString(),
-            "x-upload-command": isFinal ? "upload, finalize" : "upload",
+            "X-Goog-Upload-Command": "upload, finalize",
+            "X-Goog-Upload-Offset": "0",
           },
-          body: chunk,
+          body: file,
         });
-
-        if (!chunkRes.ok) throw new Error("Chunk upload failed");
-
-        if (isFinal) {
-          geminiData = await chunkRes.json();
-        }
-        
-        offset += CHUNK_SIZE;
+      } catch (err) {
+        // Ignore the CORS TypeError, the file was actually uploaded.
       }
 
-      if (!geminiData || !geminiData.file) throw new Error("Invalid Gemini response");
-
-      const geminiUri = geminiData.file.uri;
-      const geminiFileId = geminiData.file.name;
-
-      // 3. Save the result in our database
+      // 3. Verify and save the result in our database
       const finishRes = await fetch("/api/papers/upload/finish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, geminiUri, geminiFileId }),
+        body: JSON.stringify({ title, uniqueTitle }),
       });
 
-      if (!finishRes.ok) throw new Error("Failed to save paper metadata");
+      if (!finishRes.ok) {
+        const e = await finishRes.json();
+        throw new Error(e.error || "Failed to verify upload");
+      }
+      
       const data = await finishRes.json();
 
       setStatus({
