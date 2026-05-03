@@ -45,6 +45,21 @@ export default function LineageEngine() {
     setResults((prev) => [result, ...prev]);
   }, []);
 
+  const handleDeletePaper = useCallback(
+    async (paperId: string) => {
+      try {
+        await fetch(`/api/papers/${paperId}`, { method: "DELETE" });
+        if (activePaperId === paperId) {
+          setActivePaperId(null);
+        }
+        refreshPapers();
+      } catch (err) {
+        console.error("[LineageEngine] Failed to delete paper:", err);
+      }
+    },
+    [activePaperId, refreshPapers]
+  );
+
   return (
     <div className="flex flex-col lg:flex-row min-h-[calc(100vh-57px)]">
       {/* ─── Left Panel: Controls ─── */}
@@ -64,6 +79,7 @@ export default function LineageEngine() {
           activePaperId={activePaperId}
           onSelectPaper={setActivePaperId}
           onResult={handleQueryResult}
+          onDeletePaper={handleDeletePaper}
         />
       </div>
 

@@ -8,6 +8,7 @@ interface Props {
   activePaperId: string | null;
   onSelectPaper: (id: string) => void;
   onResult: (result: ExtractionResult) => void;
+  onDeletePaper: (id: string) => void;
 }
 
 /**
@@ -19,6 +20,7 @@ export default function ClaimQuery({
   activePaperId,
   onSelectPaper,
   onResult,
+  onDeletePaper,
 }: Props) {
   const [claim, setClaim] = useState("");
   const [mode, setMode] = useState<"fact_check" | "learn">("fact_check");
@@ -84,35 +86,51 @@ export default function ClaimQuery({
         ) : (
           <div className="space-y-1">
             {readyPapers.map((paper) => (
-              <button
+              <div
                 key={paper.id}
-                onClick={() => onSelectPaper(paper.id)}
-                className={`w-full text-left px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider border transition-all duration-200 flex items-center gap-3 ${
+                className={`w-full group relative text-left text-[10px] font-bold uppercase tracking-wider border transition-all duration-200 flex items-stretch ${
                   activePaperId === paper.id
                     ? "border-cyan-500 bg-cyan-500/10 text-cyan-300"
                     : "border-gray-800 text-gray-400 hover:border-gray-600 hover:text-gray-300"
                 }`}
               >
-                <svg
-                  className="w-4 h-4 shrink-0 opacity-60"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
+                <button
+                  onClick={() => onSelectPaper(paper.id)}
+                  className="flex-1 flex items-center gap-3 px-3 py-2.5 truncate"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
-                  />
-                </svg>
-                <span className="truncate">{paper.title}</span>
-                {activePaperId === paper.id && (
-                  <span className="ml-auto text-[8px] text-cyan-500">
-                    ACTIVE
-                  </span>
-                )}
-              </button>
+                  <svg
+                    className="w-4 h-4 shrink-0 opacity-60"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                    />
+                  </svg>
+                  <span className="truncate">{paper.title}</span>
+                  {activePaperId === paper.id && (
+                    <span className="ml-auto text-[8px] text-cyan-500 pr-2">
+                      ACTIVE
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeletePaper(paper.id);
+                  }}
+                  className="px-3 border-l border-transparent group-hover:border-gray-800 text-gray-600 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                  title="Delete Document"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
             ))}
           </div>
         )}
