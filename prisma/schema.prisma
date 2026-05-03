@@ -53,3 +53,15 @@ model SystemState {
   whatsappConnected  Boolean  @default(false)
   updatedAt          DateTime @updatedAt
 }
+
+/// Stores a PDF uploaded to the Gemini File API for exact-match extraction.
+model Paper {
+  id            String   @id @default(cuid())
+  title         String
+  geminiUri     String?  /// The Gemini File API URI (e.g. "files/abc123")
+  geminiFileId  String?  /// The file resource name, used for deletion
+  pageCount     Int?     /// Optional page count for UI display
+  uploadedAt    DateTime @default(now())
+
+  @@index([title])
+}

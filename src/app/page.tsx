@@ -48,7 +48,15 @@ export default async function AntiPortalPage(props: {
               Ingestion_Engine // Status: ACTIVE
             </p>
           </div>
-          <FocusToggle active={isFocusMode} />
+          <div className="flex items-center gap-3">
+            <Link
+              href="/lineage"
+              className="px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] border-2 border-purple-500 text-purple-400 hover:bg-purple-500/10 hover:text-white transition-all duration-300"
+            >
+              Lineage Engine →
+            </Link>
+            <FocusToggle active={isFocusMode} />
+          </div>
         </header>
 
         {/* Brutalist Filter Bar */}
