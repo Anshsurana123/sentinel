@@ -51,18 +51,36 @@ export default function PaperUploader({ onUploadComplete, onMount }: Props) {
       if (!startRes.ok) throw new Error("Failed to start upload session");
       const { uploadUrl } = await startRes.json();
 
-      // 2. Upload directly from browser to Gemini File API
-      const geminiRes = await fetch(uploadUrl, {
-        method: "POST",
-        headers: {
-          "X-Goog-Upload-Command": "upload, finalize",
-          "X-Goog-Upload-Offset": "0",
-        },
-        body: file,
-      });
+      // 2. Chunk the file and proxy via Next.js to bypass Vercel limits & CORS
+      const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunks
+      let offset = 0;
+      let geminiData: any = null;
 
-      if (!geminiRes.ok) throw new Error("Direct upload to Gemini failed");
-      const geminiData = await geminiRes.json();
+      while (offset < file.size) {
+        const chunk = file.slice(offset, offset + CHUNK_SIZE);
+        const isFinal = offset + CHUNK_SIZE >= file.size;
+
+        const chunkRes = await fetch("/api/papers/upload/chunk", {
+          method: "POST",
+          headers: {
+            "x-upload-url": uploadUrl,
+            "x-upload-offset": offset.toString(),
+            "x-upload-command": isFinal ? "upload, finalize" : "upload",
+          },
+          body: chunk,
+        });
+
+        if (!chunkRes.ok) throw new Error("Chunk upload failed");
+
+        if (isFinal) {
+          geminiData = await chunkRes.json();
+        }
+        
+        offset += CHUNK_SIZE;
+      }
+
+      if (!geminiData || !geminiData.file) throw new Error("Invalid Gemini response");
+
       const geminiUri = geminiData.file.uri;
       const geminiFileId = geminiData.file.name;
 
