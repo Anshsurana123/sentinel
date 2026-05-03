@@ -4,11 +4,13 @@ import { GoogleAIFileManager } from "@google/generative-ai/server";
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     const paper = await prisma.paper.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!paper) {
@@ -26,7 +28,7 @@ export async function DELETE(
     }
 
     await prisma.paper.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });
