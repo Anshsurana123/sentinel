@@ -21,6 +21,7 @@ export default function ClaimQuery({
   onResult,
 }: Props) {
   const [claim, setClaim] = useState("");
+  const [mode, setMode] = useState<"fact_check" | "learn">("fact_check");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +39,7 @@ export default function ClaimQuery({
       const res = await fetch("/api/papers/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paperId: activePaperId, claim: claim.trim() }),
+        body: JSON.stringify({ paperId: activePaperId, claim: claim.trim(), mode }),
       });
 
       if (!res.ok) {
@@ -117,16 +118,46 @@ export default function ClaimQuery({
         )}
       </div>
 
-      {/* Claim Input */}
-      <form onSubmit={handleSubmit} className="space-y-3">
+      {/* Mode Toggle */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setMode("fact_check")}
+          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest border transition-all ${
+            mode === "fact_check"
+              ? "border-purple-500 bg-purple-500/10 text-purple-300"
+              : "border-gray-800 text-gray-500 hover:border-gray-600"
+          }`}
+        >
+          Fact Checker
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("learn")}
+          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest border transition-all ${
+            mode === "learn"
+              ? "border-emerald-500 bg-emerald-500/10 text-emerald-300"
+              : "border-gray-800 text-gray-500 hover:border-gray-600"
+          }`}
+        >
+          Learning Mode
+        </button>
+      </div>
+
+      {/* Query Input */}
+      <form onSubmit={handleSubmit} className="space-y-3 pt-2">
         <label className="text-[9px] font-bold uppercase tracking-widest text-gray-500 block">
-          Claim to Verify
+          {mode === "fact_check" ? "Claim to Verify" : "Question to Ask"}
         </label>
         <div className="relative">
           <textarea
             value={claim}
             onChange={(e) => setClaim(e.target.value)}
-            placeholder="e.g. Force equals mass times acceleration"
+            placeholder={
+              mode === "fact_check"
+                ? "e.g. Force equals mass times acceleration"
+                : "e.g. What is the formula for the temperature required for a phase change?"
+            }
             disabled={!activePaperId || loading}
             rows={3}
             className={`
@@ -159,8 +190,8 @@ export default function ClaimQuery({
         >
           {loading ? (
             <>
-              <div className="w-3 h-3 border border-purple-500 border-t-transparent rounded-full animate-spin" />
-              Extracting...
+              <div className={`w-3 h-3 border rounded-full animate-spin border-t-transparent ${mode === "fact_check" ? "border-purple-500" : "border-emerald-500"}`} />
+              {mode === "fact_check" ? "Extracting..." : "Studying..."}
             </>
           ) : (
             <>
@@ -177,7 +208,7 @@ export default function ClaimQuery({
                   d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
                 />
               </svg>
-              Extract Lineage
+              {mode === "fact_check" ? "Extract Lineage" : "Ask Question"}
             </>
           )}
         </button>

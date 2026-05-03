@@ -23,18 +23,32 @@ The JSON must have this exact shape:
 }
 If you cannot find relevant text, set found to false and exact_sentence to null.`;
 
+const LEARNING_SYSTEM_PROMPT = `You are a strict, helpful academic tutor.
+Your ONLY job is to answer the user's question using ONLY information found in the provided document.
+You must return ONLY a valid JSON object. No preamble. No markdown. No explanation.
+The JSON must have this exact shape:
+{
+  "found": boolean,
+  "answer": "your direct, helpful answer to the question based on the text",
+  "exact_sentence": "a verbatim quote from the document that backs up your answer",
+  "page_number": number or null,
+  "context": "one sentence of surrounding context",
+  "verdict": "ANSWERED" | "NOT_FOUND"
+}
+If you cannot find relevant text to answer the question, set found to false, answer to null, and verdict to "NOT_FOUND".`;
+
 /**
  * POST /api/papers/query
  */
 export async function POST(req: NextRequest) {
-  let body: { paperId?: string; claim?: string };
+  let body: { paperId?: string; claim?: string; mode?: "fact_check" | "learn" };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { paperId, claim } = body;
+  const { paperId, claim, mode = "fact_check" } = body;
   if (!paperId || !claim) {
     return NextResponse.json({ error: "Both 'paperId' and 'claim' are required" }, { status: 400 });
   }
@@ -63,7 +77,7 @@ export async function POST(req: NextRequest) {
   // --- Query Gemini with the file URI + claim ---
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash",
-    systemInstruction: EXTRACTION_SYSTEM_PROMPT,
+    systemInstruction: mode === "learn" ? LEARNING_SYSTEM_PROMPT : EXTRACTION_SYSTEM_PROMPT,
   });
 
   try {
@@ -75,7 +89,9 @@ export async function POST(req: NextRequest) {
         },
       },
       {
-        text: `Find text in this document relevant to the following claim: "${claim}"`,
+        text: mode === "learn" 
+          ? `Answer this question using the document: "${claim}"`
+          : `Find text in this document relevant to the following claim: "${claim}"`,
       },
     ]);
 

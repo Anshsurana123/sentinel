@@ -14,7 +14,8 @@ export interface ExtractionResult {
   exact_sentence: string | null;
   page_number: number | null;
   context: string | null;
-  verdict: "SUPPORTS" | "REFUTES" | "UNRELATED";
+  answer?: string | null; // For learning mode
+  verdict: "SUPPORTS" | "REFUTES" | "UNRELATED" | "ANSWERED" | "NOT_FOUND";
   paperTitle: string;
   paperId: string;
   /** The original claim text the user typed */

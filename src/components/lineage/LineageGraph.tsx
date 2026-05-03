@@ -12,6 +12,8 @@ const VERDICT_COLORS = {
   SUPPORTS: { stroke: "#22c55e", fill: "#22c55e", bg: "rgba(34,197,94,0.08)", text: "#86efac", label: "SUPPORTS" },
   REFUTES:  { stroke: "#ef4444", fill: "#ef4444", bg: "rgba(239,68,68,0.08)", text: "#fca5a5", label: "REFUTES"  },
   UNRELATED:{ stroke: "#6b7280", fill: "#6b7280", bg: "rgba(107,114,128,0.08)", text: "#9ca3af", label: "UNRELATED"},
+  ANSWERED: { stroke: "#10b981", fill: "#10b981", bg: "rgba(16,185,129,0.08)", text: "#6ee7b7", label: "ANSWERED" },
+  NOT_FOUND:{ stroke: "#6b7280", fill: "#6b7280", bg: "rgba(107,114,128,0.08)", text: "#9ca3af", label: "NOT FOUND"},
 } as const;
 
 /* ─── Node positioning ─── */
@@ -156,7 +158,10 @@ export default function LineageGraph({ results }: Props) {
           const claimNodeW = 240;
           const paperNodeW = 280;
           const claimNodeH = 70;
-          const paperNodeH = r.found ? 140 : 70;
+          let paperNodeH = 70;
+          if (r.found) {
+            paperNodeH = r.answer ? 220 : 140;
+          }
 
           return (
             <g
@@ -224,7 +229,7 @@ export default function LineageGraph({ results }: Props) {
                   fill="#c084fc"
                   style={{ fontSize: "7px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.15em" }}
                 >
-                  CLAIM
+                  {r.answer !== undefined ? "QUESTION" : "CLAIM"}
                 </text>
                 {/* Claim text (truncated) */}
                 <foreignObject
@@ -304,13 +309,39 @@ export default function LineageGraph({ results }: Props) {
                   </text>
                 )}
 
-                {/* Exact sentence */}
-                {r.found && r.exact_sentence && (
+                {/* Answer (if learning mode) */}
+                {r.found && r.answer && (
                   <foreignObject
                     x={-paperNodeW / 2 + 8}
                     y={-claimNodeH / 2 + 60}
                     width={paperNodeW - 16}
-                    height={paperNodeH - 68}
+                    height={80}
+                  >
+                    <p
+                      style={{
+                        fontSize: "10px",
+                        fontFamily: "sans-serif",
+                        color: "#f3f4f6",
+                        lineHeight: "1.4",
+                        overflow: "hidden",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 5,
+                        WebkitBoxOrient: "vertical" as const,
+                        margin: 0,
+                      }}
+                    >
+                      {r.answer}
+                    </p>
+                  </foreignObject>
+                )}
+
+                {/* Exact sentence (Quote) */}
+                {r.found && r.exact_sentence && (
+                  <foreignObject
+                    x={-paperNodeW / 2 + 8}
+                    y={-claimNodeH / 2 + (r.answer ? 145 : 60)}
+                    width={paperNodeW - 16}
+                    height={paperNodeH - (r.answer ? 150 : 68)}
                   >
                     <p
                       style={{
