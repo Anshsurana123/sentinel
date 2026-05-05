@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(update-config)",
+      "Bash(npm install *)",
+      "WebSearch",
+      "WebFetch(domain:reactflow.dev)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

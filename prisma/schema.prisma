@@ -62,6 +62,25 @@ model Paper {
   geminiFileId  String?  /// The file resource name, used for deletion
   pageCount     Int?     /// Optional page count for UI display
   uploadedAt    DateTime @default(now())
+  claims        Claim[]
 
   @@index([title])
+}
+
+model Claim {
+  id            String   @id @default(cuid())
+  text          String
+  verdict       String   // "SUPPORTS" | "REFUTES" | "UNRELATED"
+  exactSentence String?
+  pageNumber    Int?
+  context       String?
+  paperId       String
+  paper         Paper    @relation(fields: [paperId], references: [id])
+  parentId      String?  // for citation chains
+  parent        Claim?   @relation("ClaimChain", fields: [parentId], references: [id])
+  children      Claim[]  @relation("ClaimChain")
+  createdAt     DateTime @default(now())
+
+  @@index([paperId])
+  @@index([parentId])
 }

@@ -2,13 +2,86 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { GoogleAIFileManager } from "@google/generative-ai/server";
 
+/**
+ * GET /api/papers/[id]
+ *
+ * Proxies the PDF from Gemini File API so the browser can render it
+ * via react-pdf without exposing the API key.
+ */
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const paper = await prisma.paper.findUnique({
+      where: { id },
+    });
+
+    if (!paper) {
+      return NextResponse.json({ error: "Paper not found" }, { status: 404 });
+    }
+
+    if (!paper.geminiFileId || !paper.geminiUri) {
+      return NextResponse.json(
+        { error: "No file available for this paper" },
+        { status: 404 }
+      );
+    }
+
+    const apiKey = process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Server misconfigured" },
+        { status: 500 }
+      );
+    }
+
+    // Attempt media download via Gemini REST API
+    const downloadUrl = `https://generativelanguage.googleapis.com/v1beta/${paper.geminiFileId}?key=${apiKey}&alt=media`;
+
+    const fileRes = await fetch(downloadUrl);
+    if (!fileRes.ok) {
+      const errText = await fileRes.text().catch(() => "Unknown error");
+      console.error("[papers/get] Gemini download failed:", errText);
+      return NextResponse.json(
+        { error: "Failed to fetch PDF from storage" },
+        { status: 502 }
+      );
+    }
+
+    const blob = await fileRes.blob();
+    return new NextResponse(blob, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="${encodeURIComponent(
+          paper.title
+        )}.pdf"`,
+      },
+    });
+  } catch (err) {
+    console.error("[papers/get] Error:", err);
+    return NextResponse.json(
+      { error: "Failed to fetch paper" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/papers/[id]
+ *
+ * Deletes the paper from the database and attempts to delete
+ * the associated file from Gemini to free up space.
+ */
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    
+
     const paper = await prisma.paper.findUnique({
       where: { id },
     });
