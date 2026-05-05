@@ -118,11 +118,10 @@ export default function LineagePage() {
 
       // Show PDF highlighter if we have a pinpointed sentence
       if (result.found && result.exact_sentence && result.page_number != null) {
-        const paper = papers.find((p) => p.id === result.paperId);
-        setPdfUrl(paper?.supabaseUrl || `/api/papers/${result.paperId}`);
+        setPdfUrl(`/api/papers/${result.paperId}`);
       }
     },
-    [chainRootId, papers]
+    [chainRootId]
   );
 
   const handleExtendChain = useCallback(() => {

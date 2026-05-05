@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma";
 /**
  * GET /api/papers/[id]
  *
- * Redirects to the permanent Supabase Storage public URL.
- * Falls back to an error if the paper has no Supabase URL.
+ * Proxies the PDF from Gemini File API so the browser can render it
+ * via react-pdf without exposing the API key.
  */
 export async function GET(
   req: NextRequest,
@@ -22,14 +22,51 @@ export async function GET(
       return NextResponse.json({ error: "Paper not found" }, { status: 404 });
     }
 
-    if (paper.supabaseUrl) {
-      return NextResponse.redirect(paper.supabaseUrl);
+    if (!paper.geminiFileId || !paper.geminiUri) {
+      return NextResponse.json(
+        { error: "No file available for this paper" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json(
-      { error: "No PDF URL available. This paper was uploaded before Supabase storage was enabled. Please re-upload it." },
-      { status: 404 }
-    );
+    const apiKey = process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Server misconfigured" },
+        { status: 500 }
+      );
+    }
+
+    // Attempt media download via Gemini REST API
+    const downloadUrl = `https://generativelanguage.googleapis.com/v1beta/${paper.geminiFileId}?key=${apiKey}&alt=media`;
+
+    const fileRes = await fetch(downloadUrl);
+    if (!fileRes.ok) {
+      const errText = await fileRes.text().catch(() => "Unknown error");
+      console.error("[papers/get] Gemini download failed:", errText);
+
+      if (fileRes.status === 404 || fileRes.status === 410) {
+        return NextResponse.json(
+          { expired: true, paperId: id, paperTitle: paper.title },
+          { status: 410 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: "Failed to fetch PDF from storage" },
+        { status: 502 }
+      );
+    }
+
+    const blob = await fileRes.blob();
+    return new NextResponse(blob, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="${encodeURIComponent(
+          paper.title
+        )}.pdf"`,
+      },
+    });
   } catch (err) {
     console.error("[papers/get] Error:", err);
     return NextResponse.json(

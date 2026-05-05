@@ -9,8 +9,7 @@ interface Props {
 
 /**
  * PaperUploader — Drag-and-drop PDF upload with progress indication.
- * Uploads directly to POST /api/papers/upload which handles both
- * Supabase Storage (for viewing) and Gemini File API (for AI querying).
+ * Uploads to POST /api/papers/upload.
  */
 export default function PaperUploader({ onUploadComplete, onMount }: Props) {
   const [dragOver, setDragOver] = useState(false);
@@ -37,26 +36,55 @@ export default function PaperUploader({ onUploadComplete, onMount }: Props) {
 
     try {
       const title = file.name.replace(/\.pdf$/i, "");
+      const uniqueTitle = `${title}_${Date.now()}`;
 
-      const formData = new FormData();
-      formData.append("pdf", file);
-      formData.append("title", title);
-
-      const res = await fetch("/api/papers/upload", {
+      // 1. Get resumable upload URL from backend (bypasses Vercel limits)
+      const startRes = await fetch("/api/papers/upload/start", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: uniqueTitle,
+          size: file.size,
+          mimeType: "application/pdf",
+        }),
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Upload failed (${res.status})`);
+      if (!startRes.ok) throw new Error("Failed to start upload session");
+      const { uploadUrl } = await startRes.json();
+
+      // 2. Upload directly from browser to Gemini File API
+      // We expect this to throw "TypeError: Failed to fetch" because of a known
+      // bug in Gemini's API where it doesn't return CORS headers on success.
+      try {
+        await fetch(uploadUrl, {
+          method: "POST",
+          headers: {
+            "X-Goog-Upload-Command": "upload, finalize",
+            "X-Goog-Upload-Offset": "0",
+          },
+          body: file,
+        });
+      } catch (err) {
+        // Ignore the CORS TypeError, the file was actually uploaded.
       }
 
-      const data = await res.json();
+      // 3. Verify and save the result in our database
+      const finishRes = await fetch("/api/papers/upload/finish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, uniqueTitle }),
+      });
+
+      if (!finishRes.ok) {
+        const e = await finishRes.json();
+        throw new Error(e.error || "Failed to verify upload");
+      }
+      
+      const data = await finishRes.json();
 
       setStatus({
         type: "success",
-        message: `"${data.title}" indexed by Gemini & stored in Supabase`,
+        message: `"${data.title}" indexed by Gemini`,
       });
       onUploadComplete(data.paperId);
     } catch (err) {
@@ -113,12 +141,12 @@ export default function PaperUploader({ onUploadComplete, onMount }: Props) {
       >
         {uploading ? (
           <>
-            <div className="relative w-8 h-8">
+              <div className="relative w-8 h-8">
               <div className="absolute inset-0 border-2 border-yellow-500/30 rounded-full pointer-events-none" />
               <div className="absolute inset-0 border-2 border-yellow-500 rounded-full border-t-transparent animate-spin pointer-events-none" />
             </div>
             <span className="text-[10px] text-yellow-500 font-bold uppercase tracking-widest animate-pulse">
-              Uploading to Gemini & Supabase...
+              Uploading to Gemini...
             </span>
           </>
         ) : (
@@ -144,7 +172,7 @@ export default function PaperUploader({ onUploadComplete, onMount }: Props) {
                 Drop PDF or click to browse
               </p>
               <p className="text-[8px] text-gray-600 mt-1 tracking-wider">
-                Stored in Supabase Storage + indexed by Gemini File API
+                Uploaded once to Gemini File API — no chunking needed
               </p>
             </div>
           </>
