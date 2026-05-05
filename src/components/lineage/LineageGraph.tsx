@@ -91,7 +91,7 @@ export default function LineageGraph({ results }: Props) {
         className="w-full h-full flex flex-col items-center justify-center gap-6 select-none"
       >
         {/* Empty state — animated grid background */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
           backgroundImage: `
             linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
             linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)
@@ -101,10 +101,10 @@ export default function LineageGraph({ results }: Props) {
 
         {/* Pulsing radar icon */}
         <div className="relative w-20 h-20">
-          <div className="absolute inset-0 border border-gray-800 rounded-full" />
-          <div className="absolute inset-2 border border-gray-800 rounded-full" />
-          <div className="absolute inset-4 border border-gray-800 rounded-full" />
-          <div className="absolute inset-0 border-2 border-purple-500/30 rounded-full animate-ping" />
+          <div className="absolute inset-0 border border-gray-800 rounded-full pointer-events-none" />
+          <div className="absolute inset-2 border border-gray-800 rounded-full pointer-events-none" />
+          <div className="absolute inset-4 border border-gray-800 rounded-full pointer-events-none" />
+          <div className="absolute inset-0 border-2 border-purple-500/30 rounded-full animate-ping pointer-events-none" />
           <div className="absolute inset-[38%] bg-purple-500/60 rounded-full" />
         </div>
 

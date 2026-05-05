@@ -1,90 +1,121 @@
 "use client";
 
-import React, { useMemo } from "react";
-import { Mafs, Coordinates, Plot, useMovablePoint, Theme } from "mafs";
+import React, { useState, useMemo } from "react";
+import { Mafs, Coordinates, Plot, MovablePoint } from "mafs";
+import "mafs/core.css";
 import { RosettaGraphConfig } from "./types";
 
 interface Props {
   config: RosettaGraphConfig | null;
-  paramValue: number; // Linked to the slider (e.g. amplitude)
+  paramValue: number;
 }
 
 export default function MafsGraph({ config, paramValue }: Props) {
-  const point = useMovablePoint([0, 0], {
-    constrain: "horizontal",
-    color: "#ffffff"
-  });
+  const [pointX, setPointX] = useState(0);
 
-  const fn = useMemo(() => {
-    if (!config?.equation_js) return (x: number) => 0;
-    
-    try {
-      // Provide x, t (as alias for x), and amplitude/length (from paramValue)
-      // to cover most generated formulas.
-      return new Function(
-        "x",
-        "t",
-        "amplitude",
-        "length",
-        `
-        try {
-          return ${config.equation_js};
-        } catch(e) {
-          return 0;
-        }
-        `
-      ) as (x: number, t: number, amplitude: number, length: number) => number;
-    } catch (e) {
-      console.error("Failed to parse equation_js", e);
-      return (x: number) => 0;
+  const evaluate = useMemo(() => {
+    if (!config?.equation_js) {
+      return (_x: number, _param: number) => 0;
     }
+    return (x: number, param: number) => {
+      try {
+        const fn = new Function(
+          "x",
+          "t",
+          "amplitude",
+          "length",
+          "Math",
+          `try { return ${config.equation_js}; } catch(e) { return 0; }`
+        ) as (x: number, t: number, amplitude: number, length: number, math: Math) => number;
+        return fn(x, x, param, param, Math);
+      } catch {
+        return 0;
+      }
+    };
   }, [config?.equation_js]);
 
-  const yValue = config ? fn(point.x, point.x, paramValue, paramValue) : 0;
+  const currentY = evaluate(pointX, paramValue);
 
   if (!config) {
     return (
-      <div className="border border-[#333] p-6 h-64 flex items-center justify-center text-gray-600 font-mono">
-        <span className="opacity-50">GRAPH_UNAVAILABLE //</span>
+      <div
+        style={{
+          border: "1px solid #333",
+          padding: "24px",
+          height: "300px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "monospace",
+          color: "#666",
+          background: "#000",
+        }}
+      >
+        <span style={{ opacity: 0.5 }}>GRAPH_UNAVAILABLE //</span>
       </div>
     );
   }
 
   return (
-    <div className="border border-[#333] p-6 bg-black flex flex-col gap-4 font-mono">
-      <div className="flex justify-between items-end">
-        <div className="text-[#00ff41] text-xs font-bold uppercase tracking-widest">
-          INTERACTIVE GRAPH // {config.type.replace(/_/g, " ")}
+    <div
+      style={{
+        border: "1px solid #333",
+        padding: "12px",
+        background: "#000",
+        fontFamily: "monospace",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "8px",
+        }}
+      >
+        <div
+          style={{
+            color: "#00ff41",
+            fontSize: "12px",
+            fontWeight: "bold",
+            textTransform: "uppercase",
+            letterSpacing: "0.15em",
+          }}
+        >
+          INTERACTIVE_GRAPH // {config.type.replace(/_/g, " ")}
         </div>
-        <div className="text-xs text-gray-400">
-          x: {point.x.toFixed(2)} | y: {yValue.toFixed(2)}
+        <div style={{ color: "#666", fontSize: "11px" }}>
+          x: {pointX.toFixed(2)} | y: {currentY.toFixed(2)}
         </div>
       </div>
 
-      <div className="w-full h-[300px] border border-[#333] relative bg-[#0a0a0a]">
-        <Mafs
-          viewBox={{ x: [-5, 5], y: [-5, 5] }}
-          preserveAspectRatio="contain"
-        >
+      <div style={{ width: "100%", height: "300px", border: "1px solid #1a1a1a", background: "#0a0a0a" }}>
+        <Mafs viewBox={{ x: [-5, 5], y: [-2, 2] }} preserveAspectRatio={false}>
           <Coordinates.Cartesian
             xAxis={{ lines: 1, labels: (n) => (n % 2 === 0 ? String(n) : "") }}
             yAxis={{ lines: 1, labels: (n) => (n % 2 === 0 ? String(n) : "") }}
             subdivisions={5}
           />
-          <Plot.OfX
-            y={(x) => fn(x, x, paramValue, paramValue)}
-            color="#00ff41"
-            weight={2}
+          <Plot.OfX y={(x) => evaluate(x, paramValue)} color="#00ff41" weight={2} />
+          <MovablePoint
+            point={[pointX, currentY]}
+            onMove={([x]) => setPointX(x)}
+            color="white"
           />
-          {point.element}
         </Mafs>
 
-        {/* Axis Labels */}
-        <div className="absolute bottom-2 right-2 text-[10px] text-gray-500 bg-black/50 px-1">
+        <div
+          style={{
+            position: "absolute",
+            bottom: "8px",
+            right: "8px",
+            fontSize: "10px",
+            color: "#555",
+            background: "rgba(0,0,0,0.5)",
+            padding: "2px 4px",
+          }}
+        >
           {config.x_label}
-        </div>
-        <div className="absolute top-2 left-2 text-[10px] text-gray-500 bg-black/50 px-1 rotate-90 origin-top-left translate-x-4">
-          {config.y_label}
         </div>
       </div>
     </div>

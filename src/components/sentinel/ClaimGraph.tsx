@@ -297,7 +297,7 @@ function GraphInner({ results }: ClaimGraphProps) {
   }, [fitView]);
 
   return (
-    <div style={{ width: "100%", height: "400px", background: "#000" }}>
+    <div style={{ width: "100%", height: "400px", background: "#000", position: "relative" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

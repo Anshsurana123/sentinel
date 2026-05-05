@@ -141,9 +141,9 @@ export default function PaperUploader({ onUploadComplete, onMount }: Props) {
       >
         {uploading ? (
           <>
-            <div className="relative w-8 h-8">
-              <div className="absolute inset-0 border-2 border-yellow-500/30 rounded-full" />
-              <div className="absolute inset-0 border-2 border-yellow-500 rounded-full border-t-transparent animate-spin" />
+              <div className="relative w-8 h-8">
+              <div className="absolute inset-0 border-2 border-yellow-500/30 rounded-full pointer-events-none" />
+              <div className="absolute inset-0 border-2 border-yellow-500 rounded-full border-t-transparent animate-spin pointer-events-none" />
             </div>
             <span className="text-[10px] text-yellow-500 font-bold uppercase tracking-widest animate-pulse">
               Uploading to Gemini...
