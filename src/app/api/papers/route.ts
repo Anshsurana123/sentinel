@@ -4,8 +4,7 @@ import { prisma } from "@/lib/prisma";
 /**
  * GET /api/papers
  *
- * Returns all uploaded papers (id, title, uploadedAt, hasUri).
- * Used by the Lineage Engine UI to populate the paper selector.
+ * Returns all uploaded papers with their Supabase public URLs.
  */
 export async function GET() {
   const papers = await prisma.paper.findMany({
@@ -14,6 +13,7 @@ export async function GET() {
       id: true,
       title: true,
       geminiUri: true,
+      supabaseUrl: true,
       uploadedAt: true,
     },
   });
@@ -23,6 +23,7 @@ export async function GET() {
       id: p.id,
       title: p.title,
       ready: !!p.geminiUri,
+      supabaseUrl: p.supabaseUrl,
       uploadedAt: p.uploadedAt,
     }))
   );

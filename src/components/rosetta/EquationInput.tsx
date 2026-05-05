@@ -14,10 +14,18 @@ interface Props {
   onParse: (equation: string) => void;
   loading: boolean;
   error: string | null;
+  value?: string;
+  onChange?: (value: string) => void;
 }
 
-export default function EquationInput({ onParse, loading, error }: Props) {
-  const [equation, setEquation] = useState("");
+export default function EquationInput({ onParse, loading, error, value, onChange }: Props) {
+  const [internalEquation, setInternalEquation] = useState("");
+  const equation = value ?? internalEquation;
+
+  const setEquation = (val: string) => {
+    if (onChange) onChange(val);
+    else setInternalEquation(val);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

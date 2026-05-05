@@ -60,6 +60,7 @@ model Paper {
   title         String
   geminiUri     String?  /// The Gemini File API URI (e.g. "files/abc123")
   geminiFileId  String?  /// The file resource name, used for deletion
+  supabaseUrl   String?  /// Permanent public URL in Supabase Storage
   pageCount     Int?     /// Optional page count for UI display
   uploadedAt    DateTime @default(now())
   claims        Claim[]

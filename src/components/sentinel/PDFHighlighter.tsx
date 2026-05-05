@@ -1,170 +1,230 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { Document, Page, pdfjs } from "react-pdf";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { Document, Page } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
-
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url
-).toString();
 
 interface PDFHighlighterProps {
   pdfUrl: string;
   exactSentence: string;
   pageNumber: number;
-}
-
-function makeChunks(text: string, chunkSize: number): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
-  const chunks: string[] = [];
-  for (let i = 0; i <= words.length - chunkSize; i++) {
-    chunks.push(words.slice(i, i + chunkSize).join(" "));
-  }
-  return chunks;
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  paperId: string;
 }
 
 export default function PDFHighlighter({
   pdfUrl,
   exactSentence,
   pageNumber,
+  paperId,
 }: PDFHighlighterProps) {
   const [numPages, setNumPages] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState<number>(pageNumber);
-  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(pageNumber || 1);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isExpired, setIsExpired] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Set up PDF.js worker on client only — avoids SSR crash
   useEffect(() => {
-    setCurrentPage(pageNumber);
-  }, [pageNumber]);
+    import("pdfjs-dist").then((pdfjsModule) => {
+      pdfjsModule.GlobalWorkerOptions.workerSrc = new URL(
+        "pdfjs-dist/build/pdf.worker.min.mjs",
+        import.meta.url
+      ).toString();
+    });
+  }, []);
 
-  const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
-    setError(null);
-  }, []);
+    setCurrentPage(pageNumber || 1);
+    setLoadError(null);
+    setIsExpired(false);
+  };
 
-  const onDocumentLoadError = useCallback((err: Error) => {
-    console.error("PDF load error:", err);
-    setError("PDF_LOAD_ERROR // Check file availability");
-  }, []);
-
-  const chunks = React.useMemo(() => makeChunks(exactSentence, 6), [exactSentence]);
-
-  const customTextRenderer = useCallback(
-    (textItem: { str: string }) => {
-      const text = textItem.str;
-      let highlighted = text;
-      for (const chunk of chunks) {
-        const pattern = new RegExp(`(${escapeRegExp(chunk)})`, "gi");
-        highlighted = highlighted.replace(
-          pattern,
-          '<mark style="background: #00ff4133; color: #00ff41; border-bottom: 2px solid #00ff41;">$1</mark>'
-        );
+  const onDocumentLoadError = async (error: Error) => {
+    console.error("PDF load error:", error);
+    try {
+      const res = await fetch(pdfUrl);
+      if (res.status === 410) {
+        setIsExpired(true);
+        return;
       }
-      return highlighted;
+    } catch {
+      // ignore fetch failure
+    }
+    setLoadError(error.message);
+  };
+
+  // Fuzzy highlight: split sentence into 5-word chunks and highlight matches
+  const customTextRenderer = useCallback(
+    ({ str }: { str: string }) => {
+      if (!exactSentence || !str) return str;
+
+      const words = exactSentence.split(" ").filter(Boolean);
+      const chunkSize = 5;
+      const chunks: string[] = [];
+
+      for (let i = 0; i < words.length - chunkSize + 1; i++) {
+        chunks.push(words.slice(i, i + chunkSize).join(" ").toLowerCase());
+      }
+
+      let result = str;
+
+      for (const chunk of chunks) {
+        const idx = result.toLowerCase().indexOf(chunk);
+        if (idx !== -1) {
+          const before = result.slice(0, idx);
+          const match = result.slice(idx, idx + chunk.length);
+          const after = result.slice(idx + chunk.length);
+          result = `${before}<mark style="background:#00ff4133;color:#00ff41;border-bottom:2px solid #00ff41;padding:0 2px">${match}</mark>${after}`;
+          break;
+        }
+      }
+
+      return result;
     },
-    [chunks]
+    [exactSentence]
   );
 
-  const goPrev = () => setCurrentPage((p) => Math.max(1, p - 1));
-  const goNext = () => setCurrentPage((p) => Math.min(numPages, p + 1));
+  const handleRefresh = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !paperId) return;
+    setIsRefreshing(true);
+    const formData = new FormData();
+    formData.append("pdf", file);
+    await fetch(`/api/papers/${paperId}/refresh`, {
+      method: "POST",
+      body: formData,
+    });
+    setIsExpired(false);
+    setIsRefreshing(false);
+    window.location.reload();
+  };
 
-  if (error) {
+  if (isExpired) {
     return (
       <div
         style={{
-          background: "#000",
-          border: "1px solid #333",
-          padding: "16px",
           fontFamily: "monospace",
-          color: "#ef4444",
-          fontSize: "12px",
+          padding: "16px",
+          border: "1px solid #ff9500",
+          background: "#0a0a0a",
         }}
       >
-        {error}
+        <div style={{ color: "#ff9500", marginBottom: "8px", fontWeight: "bold" }}>
+          URI_EXPIRED //
+        </div>
+        <div style={{ color: "#666", fontSize: "12px", marginBottom: "12px" }}>
+          Gemini File API URIs expire after 48hrs. Re-upload the same PDF to restore preview.
+          Claim extraction still works normally.
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf"
+          style={{ display: "none" }}
+          onChange={handleRefresh}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isRefreshing}
+          style={{
+            fontFamily: "monospace",
+            fontSize: "12px",
+            background: "#000",
+            color: "#ff9500",
+            border: "1px solid #ff9500",
+            padding: "6px 16px",
+            cursor: "pointer",
+          }}
+        >
+          {isRefreshing ? "REFRESHING▋" : "RE-UPLOAD PDF >>"}
+        </button>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div style={{ fontFamily: "monospace", color: "#ff4141", padding: "12px", border: "1px solid #ff4141" }}>
+        PDF_LOAD_ERROR // {loadError}
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        background: "#000",
-        border: "1px solid #333",
-        padding: "12px",
-        fontFamily: "monospace",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "8px",
-          color: "#00ff41",
-          fontSize: "12px",
-        }}
-      >
-        <button
-          onClick={goPrev}
-          disabled={currentPage <= 1}
-          style={{
-            background: "#0a0a0a",
-            border: "1px solid #333",
-            color: currentPage <= 1 ? "#555" : "#00ff41",
-            padding: "4px 10px",
-            fontFamily: "monospace",
-            fontSize: "11px",
-            cursor: currentPage <= 1 ? "not-allowed" : "pointer",
-          }}
-        >
-          &lt; PREV
-        </button>
-        <span>
-          PAGE_{currentPage}_OF_{numPages || "?"}
+    <div style={{ fontFamily: "monospace", color: "#fff" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+        <span style={{ color: "#00ff41", fontSize: "12px" }}>
+          PDF_VIEWER // PAGE_{currentPage}_OF_{numPages}
         </span>
-        <button
-          onClick={goNext}
-          disabled={currentPage >= numPages}
-          style={{
-            background: "#0a0a0a",
-            border: "1px solid #333",
-            color: currentPage >= numPages ? "#555" : "#00ff41",
-            padding: "4px 10px",
-            fontFamily: "monospace",
-            fontSize: "11px",
-            cursor: currentPage >= numPages ? "not-allowed" : "pointer",
-          }}
-        >
-          NEXT &gt;
-        </button>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage <= 1}
+            style={{
+              fontFamily: "monospace", fontSize: "11px",
+              background: "#000", color: "#00ff41",
+              border: "1px solid #333", padding: "2px 8px",
+              cursor: currentPage <= 1 ? "not-allowed" : "pointer",
+              opacity: currentPage <= 1 ? 0.4 : 1,
+            }}
+          >
+            ← PREV
+          </button>
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))}
+            disabled={currentPage >= numPages}
+            style={{
+              fontFamily: "monospace", fontSize: "11px",
+              background: "#000", color: "#00ff41",
+              border: "1px solid #333", padding: "2px 8px",
+              cursor: currentPage >= numPages ? "not-allowed" : "pointer",
+              opacity: currentPage >= numPages ? 0.4 : 1,
+            }}
+          >
+            NEXT →
+          </button>
+        </div>
       </div>
-      <Document
-        file={pdfUrl}
-        onLoadSuccess={onDocumentLoadSuccess}
-        onLoadError={onDocumentLoadError}
-        loading={
-          <div style={{ color: "#00ff41", fontSize: "12px", padding: "20px" }}>
-            LOADING_PDF //░░░░░░░░
-          </div>
-        }
-      >
-        <Page
-          pageNumber={currentPage}
-          customTextRenderer={customTextRenderer}
-          renderAnnotationLayer={false}
-          width={500}
+
+      {/* Extracted sentence reminder */}
+      <div style={{
+        fontSize: "11px", color: "#666", marginBottom: "8px",
+        borderLeft: "2px solid #00ff41", paddingLeft: "8px",
+        fontStyle: "italic"
+      }}>
+        HIGHLIGHTING // &quot;{exactSentence?.slice(0, 100)}...&quot;
+      </div>
+
+      {/* PDF Document */}
+      <div style={{ border: "1px solid #333", overflow: "auto", maxHeight: "500px", background: "#111" }}>
+        <Document
+          file={pdfUrl}
+          onLoadSuccess={onDocumentLoadSuccess}
+          onLoadError={onDocumentLoadError}
           loading={
-            <div style={{ color: "#00ff41", fontSize: "12px", padding: "20px" }}>
-              RENDERING_PAGE //░░░░░░░░
+            <div style={{ padding: "20px", color: "#333", fontFamily: "monospace" }}>
+              LOADING_PDF▋
             </div>
           }
-        />
-      </Document>
+        >
+          <Page
+            pageNumber={currentPage}
+            customTextRenderer={customTextRenderer}
+            renderAnnotationLayer={true}
+            renderTextLayer={true}
+            width={600}
+            loading={
+              <div style={{ padding: "20px", color: "#333", fontFamily: "monospace" }}>
+                RENDERING_PAGE▋
+              </div>
+            }
+          />
+        </Document>
+      </div>
     </div>
   );
 }

@@ -9,6 +9,8 @@ interface Props {
   onSelectPaper: (id: string) => void;
   onResult: (result: ExtractionResult) => void;
   onDeletePaper: (id: string) => void;
+  claimValue?: string;
+  onClaimChange?: (value: string) => void;
 }
 
 /**
@@ -21,8 +23,17 @@ export default function ClaimQuery({
   onSelectPaper,
   onResult,
   onDeletePaper,
+  claimValue,
+  onClaimChange,
 }: Props) {
-  const [claim, setClaim] = useState("");
+  const [internalClaim, setInternalClaim] = useState("");
+  const claim = claimValue ?? internalClaim;
+
+  const setClaim = (value: string) => {
+    if (onClaimChange) onClaimChange(value);
+    else setInternalClaim(value);
+  };
+
   const [mode, setMode] = useState<"fact_check" | "learn">("fact_check");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -169,6 +180,7 @@ export default function ClaimQuery({
         </label>
         <div className="relative">
           <textarea
+            id="claim-input"
             value={claim}
             onChange={(e) => setClaim(e.target.value)}
             placeholder={

@@ -4,6 +4,7 @@ export interface PaperEntry {
   id: string;
   title: string;
   ready: boolean;
+  supabaseUrl: string | null;
   uploadedAt: string;
 }
 
