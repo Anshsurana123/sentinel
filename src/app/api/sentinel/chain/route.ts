@@ -35,8 +35,9 @@ export async function GET(req: NextRequest) {
     const visitedUp = new Set<string>();
     while (current && !visitedUp.has(current.id)) {
       visitedUp.add(current.id);
+      if (!current.parentId) break;
       current = await prisma.claim.findUnique({
-        where: { id: current.parentId ?? undefined },
+        where: { id: current.parentId },
         include: { paper: true },
       });
     }

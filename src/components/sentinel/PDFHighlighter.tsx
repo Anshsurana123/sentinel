@@ -56,33 +56,26 @@ export default function PDFHighlighter({
     setLoadError(error.message);
   };
 
-  // Fuzzy highlight: split sentence into 5-word chunks and highlight matches
   const customTextRenderer = useCallback(
-    ({ str }: { str: string }) => {
-      if (!exactSentence || !str) return str;
+    ({ str }: { str: string }): string => {
+      if (!exactSentence || !str || str.trim().length < 2) return str;
 
-      const words = exactSentence.split(" ").filter(Boolean);
-      const chunkSize = 5;
-      const chunks: string[] = [];
+      const stopWords = new Set(["the", "and", "for", "are", "but", "not", "you", "all", "can", "her", "was", "one", "our", "out", "had", "has", "have", "that", "with", "this", "from", "they", "will", "been", "were", "said", "each", "which", "their", "time", "more", "very", "when", "come", "here", "just", "like", "long", "make", "many", "over", "such", "take", "than", "them", "well", "also"]);
 
-      for (let i = 0; i < words.length - chunkSize + 1; i++) {
-        chunks.push(words.slice(i, i + chunkSize).join(" ").toLowerCase());
-      }
+      const significantWords = exactSentence
+        .split(/\s+/)
+        .filter(w => w.length >= 4 && !stopWords.has(w.toLowerCase().replace(/[^a-z]/g, "")))
+        .map(w => w.replace(/[^a-zA-Z0-9]/g, "").toLowerCase())
+        .filter(Boolean);
 
-      let result = str;
+      if (significantWords.length === 0) return str;
 
-      for (const chunk of chunks) {
-        const idx = result.toLowerCase().indexOf(chunk);
-        if (idx !== -1) {
-          const before = result.slice(0, idx);
-          const match = result.slice(idx, idx + chunk.length);
-          const after = result.slice(idx + chunk.length);
-          result = `${before}<mark style="background:#00ff4133;color:#00ff41;border-bottom:2px solid #00ff41;padding:0 2px">${match}</mark>${after}`;
-          break;
-        }
-      }
+      const strClean = str.toLowerCase().replace(/[^a-z0-9\s]/g, "");
+      const hasMatch = significantWords.some(word => strClean.includes(word));
 
-      return result;
+      if (!hasMatch) return str;
+
+      return `<mark style="background:#00ff4133;color:#00ff41;border-bottom:2px solid #00ff41;padding:0 2px">${str}</mark>`;
     },
     [exactSentence]
   );
