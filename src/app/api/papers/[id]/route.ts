@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma";
 /**
  * GET /api/papers/[id]
  *
- * Proxies the PDF from Gemini File API so the browser can render it
- * via react-pdf without exposing the API key.
+ * Serves the PDF. If a Supabase URL exists, redirects to it.
+ * Otherwise falls back to proxying from Gemini File API.
  */
 export async function GET(
   req: NextRequest,
@@ -22,6 +22,12 @@ export async function GET(
       return NextResponse.json({ error: "Paper not found" }, { status: 404 });
     }
 
+    // If we have a Supabase URL, redirect to it
+    if (paper.supabaseUrl) {
+      return NextResponse.redirect(paper.supabaseUrl);
+    }
+
+    // Fallback: proxy from Gemini
     if (!paper.geminiFileId || !paper.geminiUri) {
       return NextResponse.json(
         { error: "No file available for this paper" },
@@ -37,7 +43,6 @@ export async function GET(
       );
     }
 
-    // Attempt media download via Gemini REST API
     const downloadUrl = `https://generativelanguage.googleapis.com/v1beta/${paper.geminiFileId}?key=${apiKey}&alt=media`;
 
     const fileRes = await fetch(downloadUrl);

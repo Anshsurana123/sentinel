@@ -1,6 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface Props {
   onUploadComplete: (paperId: string) => void;
@@ -38,6 +44,29 @@ export default function PaperUploader({ onUploadComplete, onMount }: Props) {
       const title = file.name.replace(/\.pdf$/i, "");
       const uniqueTitle = `${title}_${Date.now()}`;
 
+      // 0. Upload to Supabase Storage for PDF viewing
+      let supabaseUrl: string | null = null;
+      try {
+        const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
+        const { error: storageError } = await supabase.storage
+          .from("papers")
+          .upload(fileName, file, {
+            contentType: "application/pdf",
+            upsert: false,
+          });
+
+        if (!storageError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from("papers")
+            .getPublicUrl(fileName);
+          supabaseUrl = publicUrl;
+        } else {
+          console.warn("[PaperUploader] Supabase upload failed (non-fatal):", storageError);
+        }
+      } catch (err) {
+        console.warn("[PaperUploader] Supabase step failed (non-fatal):", err);
+      }
+
       // 1. Get resumable upload URL from backend (bypasses Vercel limits)
       const startRes = await fetch("/api/papers/upload/start", {
         method: "POST",
@@ -72,14 +101,14 @@ export default function PaperUploader({ onUploadComplete, onMount }: Props) {
       const finishRes = await fetch("/api/papers/upload/finish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, uniqueTitle }),
+        body: JSON.stringify({ title, uniqueTitle, supabaseUrl }),
       });
 
       if (!finishRes.ok) {
         const e = await finishRes.json();
         throw new Error(e.error || "Failed to verify upload");
       }
-      
+
       const data = await finishRes.json();
 
       setStatus({

@@ -1,9 +1,16 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Document, Page } from "react-pdf";
+import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
+
+if (typeof window !== "undefined") {
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/build/pdf.worker.min.mjs",
+    import.meta.url
+  ).toString();
+}
 
 interface PDFHighlighterProps {
   pdfUrl: string;
@@ -26,14 +33,7 @@ export default function PDFHighlighter({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Set up PDF.js worker on client only — avoids SSR crash
-  useEffect(() => {
-    import("pdfjs-dist").then((pdfjsModule) => {
-      pdfjsModule.GlobalWorkerOptions.workerSrc = new URL(
-        "pdfjs-dist/build/pdf.worker.min.mjs",
-        import.meta.url
-      ).toString();
-    });
-  }, []);
+
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);

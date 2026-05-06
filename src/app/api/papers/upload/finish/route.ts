@@ -4,7 +4,7 @@ import { GoogleAIFileManager } from "@google/generative-ai/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const { title, uniqueTitle } = await req.json();
+    const { title, uniqueTitle, supabaseUrl } = await req.json();
 
     if (!title || !uniqueTitle) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     // Since the browser hits a CORS error due to a Gemini bug, we verify the upload here
     const fileManager = new GoogleAIFileManager(process.env.GOOGLE_API_KEY!);
     const files = await fileManager.listFiles();
-    
+
     const uploadedFile = files.files?.find((f) => f.displayName === uniqueTitle);
     if (!uploadedFile) {
       return NextResponse.json({ error: "File upload verification failed" }, { status: 404 });
@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
         title,
         geminiUri: uploadedFile.uri,
         geminiFileId: uploadedFile.name,
+        supabaseUrl: supabaseUrl ?? null,
       },
     });
 
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
       paperId: paper.id,
       title: paper.title,
       geminiUri: uploadedFile.uri,
+      supabaseUrl: paper.supabaseUrl,
     });
   } catch (err) {
     console.error("[upload/finish]", err);
