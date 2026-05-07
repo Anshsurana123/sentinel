@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { GoogleAIFileManager } from "@google/generative-ai/server";
+import { requireUser } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
+  const { user, errorResponse } = await requireUser();
+  if (errorResponse) return errorResponse;
+
   try {
     const { title, uniqueTitle, supabaseUrl } = await req.json();
 
@@ -25,6 +29,7 @@ export async function POST(req: NextRequest) {
         geminiUri: uploadedFile.uri,
         geminiFileId: uploadedFile.name,
         supabaseUrl: supabaseUrl ?? null,
+        userId: user!.id,
       },
     });
 

@@ -8,6 +8,7 @@ import "mafs/core.css";
 import EquationInput from "@/components/rosetta/EquationInput";
 import EquationUnfolder from "@/components/rosetta/EquationUnfolder";
 import { ParsedRosettaResponse } from "@/components/rosetta/types";
+import SignOutButton from "@/components/SignOutButton";
 
 const MafsGraph = dynamic(() => import("@/components/rosetta/MafsGraph"), {
   ssr: false,
@@ -161,6 +162,13 @@ export default function RosettaPage() {
           >
             ROSETTA_STONE
           </Link>
+          <Link
+            href="/intelligence"
+            className="text-[10px] font-bold uppercase tracking-[0.2em] pb-1 border-b-2 border-transparent text-gray-600 hover:text-white transition-colors"
+          >
+            INTELLIGENCE
+          </Link>
+          <SignOutButton />
         </nav>
       </header>
 

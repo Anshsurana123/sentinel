@@ -1,12 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createClient } from "@/lib/supabase/client";
 
 interface Props {
   onUploadComplete: (paperId: string) => void;
@@ -47,7 +42,12 @@ export default function PaperUploader({ onUploadComplete, onMount }: Props) {
       // 0. Upload to Supabase Storage for PDF viewing
       let supabaseUrl: string | null = null;
       try {
-        const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const userId = user?.id ?? "anonymous";
+        const fileName = `${userId}/${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
         const { error: storageError } = await supabase.storage
           .from("papers")
           .upload(fileName, file, {

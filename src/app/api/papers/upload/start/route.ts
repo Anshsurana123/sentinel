@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
 
 /**
  * POST /api/papers/upload/start
@@ -7,6 +8,9 @@ import { NextRequest, NextResponse } from "next/server";
  * Returns an upload URL that the client can safely POST to directly, bypassing Vercel limits.
  */
 export async function POST(req: NextRequest) {
+  const { errorResponse } = await requireUser();
+  if (errorResponse) return errorResponse;
+
   try {
     const { title, size, mimeType } = await req.json();
 

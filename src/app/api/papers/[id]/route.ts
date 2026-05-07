@@ -113,6 +113,11 @@ export async function DELETE(
       }
     }
 
+    // Delete related claims first, then delete the paper
+    await prisma.claim.deleteMany({
+      where: { paperId: id },
+    });
+
     await prisma.paper.delete({
       where: { id },
     });

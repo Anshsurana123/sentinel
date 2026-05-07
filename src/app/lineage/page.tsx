@@ -11,6 +11,7 @@ import CitationChain from "@/components/sentinel/CitationChain";
 import VerdictDashboard from "@/components/sentinel/VerdictDashboard";
 import { detectEquations } from "@/lib/equationDetector";
 import type { ExtractionResult, PaperEntry } from "@/components/lineage/types";
+import SignOutButton from "@/components/SignOutButton";
 
 const ClaimGraph = dynamic(() => import("@/components/sentinel/ClaimGraph"), {
   ssr: false,
@@ -180,6 +181,13 @@ export default function LineagePage() {
           >
             ROSETTA_STONE
           </Link>
+          <Link
+            href="/intelligence"
+            className="text-[10px] font-bold uppercase tracking-[0.2em] pb-1 border-b-2 border-transparent text-gray-600 hover:text-white transition-colors"
+          >
+            INTELLIGENCE
+          </Link>
+          <SignOutButton />
         </nav>
       </header>
 

@@ -62,10 +62,12 @@ model Paper {
   geminiFileId  String?  /// The file resource name, used for deletion
   supabaseUrl   String?  /// Supabase Storage public URL for PDF preview
   pageCount     Int?     /// Optional page count for UI display
+  userId        String?
   uploadedAt    DateTime @default(now())
   claims        Claim[]
 
   @@index([title])
+  @@index([userId])
 }
 
 model Claim {
@@ -84,4 +86,41 @@ model Claim {
 
   @@index([paperId])
   @@index([parentId])
+}
+
+model AcademicEvent {
+  id          String   @id @default(cuid())
+  userId      String?
+  title       String
+  eventType   String   // "exam" | "mock" | "test" | "deadline" | "other"
+  subject     String?
+  date        DateTime
+  daysAway    Int?     // recomputed daily
+  source      String?  // timetable file name
+  createdAt   DateTime @default(now())
+  studyPlans  StudyPlan[]
+
+  @@index([date])
+}
+
+model StudyPlan {
+  id              String        @id @default(cuid())
+  eventId         String
+  event           AcademicEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  uncoveredTopics String
+  generatedPlan   Json
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  progress        DayProgress[]
+}
+
+model DayProgress {
+  id          String    @id @default(cuid())
+  planId      String
+  plan        StudyPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  dayIndex    Int
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+
+  @@unique([planId, dayIndex])
 }
