@@ -18,6 +18,8 @@ export interface ExtractionResult {
   verdict: "SUPPORTS" | "REFUTES" | "UNRELATED" | "ANSWERED" | "NOT_FOUND";
   paperTitle: string;
   paperId: string;
+  /** Direct Supabase Storage URL for the PDF — bypasses Vercel */
+  supabaseUrl?: string | null;
   /** The original claim text the user typed */
   claim: string;
 }

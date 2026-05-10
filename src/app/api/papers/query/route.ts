@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
       ...parsed,
       paperTitle: paper.title,
       paperId: paper.id,
+      supabaseUrl: paper.supabaseUrl ?? null,
     });
   } catch (err) {
     console.error("[papers/query] Gemini Generation Error:", err);

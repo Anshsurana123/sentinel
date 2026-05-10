@@ -117,9 +117,9 @@ export default function LineagePage() {
         console.error("[LineagePage] Failed to save claim:", err);
       }
 
-      // Show PDF highlighter if we have a pinpointed sentence
-      if (result.found && result.exact_sentence && result.page_number != null) {
-        setPdfUrl(`/api/papers/${result.paperId}`);
+      // Show PDF highlighter if we have a pinpointed sentence and a direct Supabase URL
+      if (result.found && result.exact_sentence && result.page_number != null && result.supabaseUrl) {
+        setPdfUrl(result.supabaseUrl);
       }
     },
     [chainRootId]

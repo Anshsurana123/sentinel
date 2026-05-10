@@ -4,8 +4,9 @@ import { prisma } from "@/lib/prisma";
 /**
  * GET /api/papers/[id]
  *
- * Serves the PDF. If a Supabase URL exists, redirects to it.
- * Otherwise falls back to proxying from Gemini File API.
+ * Redirects to the Supabase Storage public URL for the PDF.
+ * Never proxies/pipes the file through Vercel — avoids the 4.5MB
+ * response-body limit and the 10s serverless timeout.
  */
 export async function GET(
   req: NextRequest,
@@ -22,56 +23,15 @@ export async function GET(
       return NextResponse.json({ error: "Paper not found" }, { status: 404 });
     }
 
-    // If we have a Supabase URL, redirect to it
+    // Redirect the browser directly to Supabase Storage — never pipe through Vercel
     if (paper.supabaseUrl) {
       return NextResponse.redirect(paper.supabaseUrl);
     }
 
-    // Fallback: proxy from Gemini
-    if (!paper.geminiFileId || !paper.geminiUri) {
-      return NextResponse.json(
-        { error: "No file available for this paper" },
-        { status: 404 }
-      );
-    }
-
-    const apiKey = process.env.GOOGLE_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "Server misconfigured" },
-        { status: 500 }
-      );
-    }
-
-    const downloadUrl = `https://generativelanguage.googleapis.com/v1beta/${paper.geminiFileId}?key=${apiKey}&alt=media`;
-
-    const fileRes = await fetch(downloadUrl);
-    if (!fileRes.ok) {
-      const errText = await fileRes.text().catch(() => "Unknown error");
-      console.error("[papers/get] Gemini download failed:", errText);
-
-      if (fileRes.status === 404 || fileRes.status === 410) {
-        return NextResponse.json(
-          { expired: true, paperId: id, paperTitle: paper.title },
-          { status: 410 }
-        );
-      }
-
-      return NextResponse.json(
-        { error: "Failed to fetch PDF from storage" },
-        { status: 502 }
-      );
-    }
-
-    const blob = await fileRes.blob();
-    return new NextResponse(blob, {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${encodeURIComponent(
-          paper.title
-        )}.pdf"`,
-      },
-    });
+    return NextResponse.json(
+      { error: "No PDF URL found for this paper" },
+      { status: 404 }
+    );
   } catch (err) {
     console.error("[papers/get] Error:", err);
     return NextResponse.json(
